@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HD Status</title>
+<style>
+:root{--bg:#0e1512;--panel:#16201b;--text:#e8efe9;--muted:#8fa196;--accent:#25d366;--err:#ff7a7a}
+@media (prefers-color-scheme:light){:root{--bg:#f1f5f2;--panel:#fff;--text:#14201a;--muted:#5d6f64;--err:#c62828}}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,sans-serif;display:grid;place-items:center;padding:20px}
+main{width:100%;max-width:440px;background:var(--panel);border-radius:14px;padding:24px}
+h1{font-size:1.4rem;margin:0 0 6px}
+p{color:var(--muted);margin:0 0 14px}
+input,button,.go{display:block;width:100%;font:inherit;border-radius:10px;padding:12px;margin-top:10px;border:1px solid var(--muted);background:transparent;color:var(--text)}
+button,.go{background:var(--accent);border:0;color:#04140a;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}
+button:disabled{opacity:.5}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+#msg,#skip{margin:14px 0 4px;white-space:pre-line}
+.err{color:var(--err)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Send in HD</h1>
+  <p>Pick photos or videos (up to 20), open WhatsApp and tap Send once. The files come back uncompressed. Forward them to your Status.</p>
+  <input id="file" type="file" accept="image/*,video/*" multiple aria-label="Photos or videos">
+  <input id="pw" type="password" placeholder="Password" aria-label="Password" hidden>
+  <button id="go">Prepare files</button>
+  <div id="msg" role="status"></div>
+  <div id="skip" class="err"></div>
+  <a id="open" class="go" hidden>Open WhatsApp</a>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const say = (t, err) => { $('msg').textContent = t; $('msg').className = err ? 'err' : ''; };
+fetch('/api/info').then(r => r.json()).then(i => { $('pw').hidden = !i.passwordRequired; });
+$('go').onclick = async () => {
+  const files = [...$('file').files];
+  if (!files.length) return say('Choose at least one file.', true);
+  $('go').disabled = true; $('open').hidden = true; $('skip').textContent = '';
+  try {
+    const r = await fetch('/api/batch', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: $('pw').value }),
+    });
+    const batch = await r.json();
+    if (!r.ok) throw new Error(batch.error);
+    let ok = 0, bytes = 0; const skipped = [];
+    for (const [i, f] of files.entries()) {
+      say(`Converting ${i + 1} of ${files.length}: ${f.name}`);
+      const body = new FormData(); body.append('file', f);
+      const res = await fetch(`/api/batch/${batch.id}/file`, { method: 'POST', body });
+      const j = await res.json();
+      if (res.ok) { ok++; bytes += j.size; } else skipped.push(`${f.name}: ${j.error}`);
+    }
+    if (!ok) throw new Error(skipped.join('\n') || 'Nothing could be prepared.');
+    say(`Ready: ${ok} file${ok > 1 ? 's' : ''} (${(bytes / 1048576).toFixed(1)} MB). The link works for 1 hour.`);
+    if (skipped.length) $('skip').textContent = 'Skipped:\n' + skipped.join('\n');
+    $('open').href = batch.link; $('open').hidden = false;
+  } catch (e) { say(e.message, true); }
+  $('go').disabled = false;
+};
+</script>
+</body>
+</html>
