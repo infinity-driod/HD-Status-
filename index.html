@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Status Compressor v1 -->
+<!-- Status Compressor V2 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -26,11 +26,15 @@ progress{width:100%;margin-top:14px}
 .err{color:var(--err)}
 .part{margin-top:18px;border-top:1px solid var(--muted);padding-top:12px}
 video{width:100%;max-height:340px;border-radius:10px;background:#000}
+small{font-size:.8rem;font-weight:400;color:var(--muted)}
+.upd{background:var(--accent);color:#04140a;border-radius:10px;padding:10px 12px;margin-bottom:14px}
+.upd button{background:#04140a;color:#fff;margin-top:8px}
 </style>
 </head>
 <body>
 <main>
-  <h1>Status Compressor</h1>
+  <div id="upd" class="upd" role="status" hidden><span id="upd-text"></span><button id="upd-btn">Update now</button></div>
+  <h1>Status Compressor <small id="ver"></small></h1>
   <p>Shrinks a video so WhatsApp leaves it nearly untouched, and cuts long clips into 30-second parts. It all runs on your phone. Nothing is uploaded.</p>
   <input id="file" type="file" accept="video/*" aria-label="Video">
   <select id="q" aria-label="Quality">
@@ -50,8 +54,25 @@ const $ = id => document.getElementById(id);
 const say = (t, err) => { $('msg').textContent = t; $('msg').className = err ? 'err' : ''; };
 const CDN = 'https://cdn.jsdelivr.net/npm/';
 // The worker and core must be same-origin, so fetch them and serve them as blob URLs.
+// A custom worker runs as a module, so it needs the ESM build of the core.
 const blobURL = async (u, type) => URL.createObjectURL(new Blob([await (await fetch(u)).arrayBuffer()], { type }));
 let ff, logs = [];
+
+// Update check: compares this page's version with version.json on the server.
+const APP_VERSION = 2;
+$('ver').textContent = 'V' + APP_VERSION;
+async function checkUpdate() {
+  try {
+    const j = await (await fetch('version.json?t=' + Date.now(), { cache: 'no-store' })).json();
+    if (Number(j.version) > APP_VERSION) {
+      $('upd-text').textContent = `Update available: V${j.version}.${j.notes ? ' ' + j.notes : ''}`;
+      $('upd-btn').onclick = () => { location.href = location.pathname + '?v=' + j.version; };
+      $('upd').hidden = false;
+    }
+  } catch {}
+}
+checkUpdate();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
 
 async function load() {
   if (ff) return ff;
@@ -60,8 +81,8 @@ async function load() {
   f.on('log', ({ message }) => { logs = [...logs, message].slice(-6); });
   await f.load({
     classWorkerURL: await blobURL(CDN + '@ffmpeg/ffmpeg@0.12.10/dist/umd/814.ffmpeg.js', 'text/javascript'),
-    coreURL: await blobURL(CDN + '@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js', 'text/javascript'),
-    wasmURL: await blobURL(CDN + '@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm', 'application/wasm'),
+    coreURL: await blobURL(CDN + '@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js', 'text/javascript'),
+    wasmURL: await blobURL(CDN + '@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm', 'application/wasm'),
   });
   return (ff = f);
 }
