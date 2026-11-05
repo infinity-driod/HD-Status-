@@ -74,6 +74,11 @@ details p{font-size:.85rem;margin:8px 0 0}
   <div id="ready" class="part" hidden>
     <div id="tools"></div>
     <div id="items"></div>
+    <details id="dbg" hidden>
+      <summary>Technical details (for troubleshooting)</summary>
+      <pre id="dbgtxt" style="white-space:pre-wrap;word-break:break-all;font-size:.7rem;max-height:200px;overflow:auto"></pre>
+      <button id="dbgcopy" class="sec" type="button">Copy details</button>
+    </details>
   </div>
   <p class="or">Or pick a video from your phone</p>
   <input id="file" type="file" accept="video/*" aria-label="Video">
@@ -530,17 +535,38 @@ const COBALT_ERRORS = [
   ['fetch.empty', 'Nothing to download was found at that link.'],
 ];
 
+// Live Photo posts: each slide is a short moving clip. Look through the service's answer for extra video links
+// (never the watermarked copy, covers, avatars or the music).
+const SKIP_KEYS = /^(wmplay|wm_.*|avatar.*|cover.*|origin_cover|ai_dynamic_cover|dynamic_cover|music|music_info|author)$/i;
+function findVideoURLs(obj, skip) {
+  const out = new Set();
+  const walk = (v, key) => {
+    if (key && SKIP_KEYS.test(key)) return;
+    if (typeof v === 'string') {
+      if (/^https?:\/\//i.test(v) && (/\.mp4(\?|$)/i.test(v) || /mime_type=video|video_mp4|\/video\/tos/i.test(v))) out.add(v);
+    } else if (Array.isArray(v)) v.forEach(x => walk(x, key));
+    else if (v && typeof v === 'object') for (const k in v) walk(v[k], k);
+  };
+  walk(obj);
+  skip.forEach(u => out.delete(u));
+  return [...out];
+}
+let lastRaw = '';
+
 async function viaTikTok(link) {
   const r = await fetch(TIKTOK_API, { method: 'POST', body: new URLSearchParams({ url: link, hd: '1' }) });
   const j = await r.json();
   if (j.code !== 0 || !j.data) throw new LinkError(j.msg || 'No media found for that link.');
   const d = j.data;
+  try { lastRaw = JSON.stringify(d, null, 1).slice(0, 8000); } catch { lastRaw = ''; }
   if (d.images?.length) {
     const list = d.images.map((u, i) => ({ type: 'photo', url: absURL(u, TIKTOK_API), name: `tiktok-photo-${i + 1}.jpg` }));
     const m = d.music || d.music_info?.play;
     if (m) list.music = absURL(m, TIKTOK_API);
     const v = d.hdplay || d.play; // some slideshow posts come with TikTok's own rendered video
     if (v && v !== m) list.official = absURL(v, TIKTOK_API);
+    const live = findVideoURLs(d, [v, m, d.wmplay].filter(Boolean).map(u => absURL(u, TIKTOK_API)));
+    if (live.length) list.live = live.slice(0, 30);
     return list;
   }
   const u = d.hdplay || d.play;
@@ -554,6 +580,7 @@ async function viaCobalt(server, key, link) {
   const r = await fetch(server, { method: 'POST', headers, body: JSON.stringify({ url: link, videoQuality: '1080', filenameStyle: 'basic' }) });
   let j;
   try { j = await r.json(); } catch { throw new Error('the server gave an unreadable reply'); }
+  lastRaw = JSON.stringify(j, null, 1).slice(0, 8000);
   if (j.status === 'error') {
     const code = String(j.error?.code || j.error || '');
     const hit = COBALT_ERRORS.find(([k]) => code.endsWith(k));
@@ -632,11 +659,18 @@ async function downloadItem(it, onProg, strict) {
   return new File([blob], `${base}.${extFor(mime, it.type)}`, { type: mime });
 }
 
+$('dbgcopy').onclick = async () => {
+  try { await navigator.clipboard.writeText($('dbgtxt').textContent); $('dbgcopy').textContent = 'Copied'; }
+  catch { $('dbgcopy').textContent = 'Press and hold the text above to copy'; }
+  setTimeout(() => { $('dbgcopy').textContent = 'Copy details'; }, 2500);
+};
+
 function clearResults() {
   resultURLs.forEach(u => URL.revokeObjectURL(u));
   resultURLs = [];
   $('items').innerHTML = '';
   $('tools').innerHTML = '';
+  $('dbg').hidden = true; $('dbgtxt').textContent = ''; lastRaw = '';
   slideCard = null; clipBox = null;
   $('ready').hidden = true;
 }
@@ -1006,6 +1040,44 @@ $('ttgo').onclick = async () => {
       official = true;
     } catch {}
   }
+  // Live Photo clips (the moving version of each slide), when the service provides them.
+  let liveCount = 0;
+  if (items.live?.length) {
+    const box = document.createElement('div');
+    box.className = 'part';
+    const head = document.createElement('p');
+    head.textContent = 'Live Photo clips (the moving slides)';
+    const list = document.createElement('div');
+    box.append(head, list);
+    const made = [];
+    for (let i = 0; i < items.live.length; i++) {
+      ttSay(`Checking for Live Photo clips (${i + 1} of ${items.live.length})...`);
+      try {
+        const f = await downloadItem({ type: 'video', url: items.live[i], name: `live-photo-${made.length + 1}.mp4` }, () => {}, true);
+        const card = makeCard({ type: 'video' });
+        list.append(card.d);
+        fillCard(card, { type: 'video', name: f.name }, f, 1);
+        made.push(f);
+      } catch {}
+    }
+    if (made.length) {
+      const bar = document.createElement('div');
+      if (made.length > 1 && navigator.canShare?.({ files: made })) {
+        const sh = document.createElement('button');
+        sh.textContent = `Share all ${made.length} live clips to WhatsApp`;
+        sh.onclick = () => navigator.share({ files: made }).catch(() => {});
+        bar.append(sh);
+      }
+      const sa = document.createElement('button');
+      sa.className = 'sec'; sa.textContent = `Save all ${made.length} live clips`;
+      sa.onclick = async () => { for (const a of list.querySelectorAll('a[data-save]')) { a.click(); await new Promise(r => setTimeout(r, 500)); } };
+      bar.append(sa);
+      box.insertBefore(bar, list);
+      $('items').insertBefore(box, $('items').children[official ? 1 : 0] || null);
+      liveCount = made.length;
+    }
+  }
+  if (lastRaw) { $('dbgtxt').textContent = lastRaw; $('dbg').hidden = false; }
   const got = files.filter(Boolean);
   if (got.length > 1) {
     const bar = document.createElement('div');
@@ -1028,7 +1100,7 @@ $('ttgo').onclick = async () => {
   const kind = items.every(x => x.type === 'photo') ? (total > 1 ? 'photos' : 'photo') : items.every(x => x.type === 'video') ? (total > 1 ? 'videos' : 'video') : 'items';
   if (!got.length) ttSay('Found it, but the browser blocked the downloads. Use the Open buttons below.', true);
   else if (failed) ttSay(`${got.length} of ${total} ${kind} ready, no watermark. ${failed} could not be downloaded here, use the Open button${failed > 1 ? 's' : ''}.`);
-  else if (photoFiles.length >= 2) ttSay(`${official ? "TikTok's own animated version is the first video below. " : ''}${got.length} photos ready, no watermark.${failed ? ` ${failed} could not be downloaded here, use the Open button${failed > 1 ? 's' : ''}.` : ''} Tap Make one slideshow video, or Make each photo an animated clip, for the animated version.`);
+  else if (photoFiles.length >= 2) ttSay(`${liveCount ? `${liveCount} Live Photo clips (moving slides) found, shown at the top. ` : ''}${official ? "TikTok's own animated version is the first video below. " : ''}${got.length} photos ready, no watermark.${failed ? ` ${failed} could not be downloaded here, use the Open button${failed > 1 ? 's' : ''}.` : ''} Tap Make one slideshow video, or Make each photo an animated clip, for the animated version.`);
   else ttSay(items.some(x => x.type === 'video') ? `Ready, no watermark. Want to use the HD feature to get a video ready for WhatsApp Status?` : `${total} ${kind} ready, no watermark.`);
   $('ttgo').disabled = false;
 };
