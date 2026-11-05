@@ -72,6 +72,7 @@ details p{font-size:.85rem;margin:8px 0 0}
   <div id="ttmsg" role="status"></div>
   <progress id="dlbar" max="1" value="0" hidden></progress>
   <div id="ready" class="part" hidden>
+    <div id="tools"></div>
     <div id="items"></div>
   </div>
   <p class="or">Or pick a video from your phone</p>
@@ -538,6 +539,8 @@ async function viaTikTok(link) {
     const list = d.images.map((u, i) => ({ type: 'photo', url: absURL(u, TIKTOK_API), name: `tiktok-photo-${i + 1}.jpg` }));
     const m = d.music || d.music_info?.play;
     if (m) list.music = absURL(m, TIKTOK_API);
+    const v = d.hdplay || d.play; // some slideshow posts come with TikTok's own rendered video
+    if (v && v !== m) list.official = absURL(v, TIKTOK_API);
     return list;
   }
   const u = d.hdplay || d.play;
@@ -604,9 +607,10 @@ async function resolveLink(link) {
 const extFor = (mime, type) => ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/avif': 'avif', 'image/heic': 'heic', 'video/webm': 'webm', 'video/quicktime': 'mov' }[mime] || (type === 'photo' ? 'jpg' : 'mp4'));
 
 // Downloads one item into a File, with progress. Throws if it is too big or the browser blocks it.
-async function downloadItem(it, onProg) {
+async function downloadItem(it, onProg, strict) {
   const res = await fetch(it.url);
   if (!res.ok) throw new Error('Download failed.');
+  if (strict && !/^video\//i.test(res.headers.get('content-type') || '')) throw new Error('not a video');
   const len = Number(res.headers.get('content-length')) || 0;
   if (len > DL_MAX_MB * 1048576) throw new Error('too big');
   let blob;
@@ -632,6 +636,8 @@ function clearResults() {
   resultURLs.forEach(u => URL.revokeObjectURL(u));
   resultURLs = [];
   $('items').innerHTML = '';
+  $('tools').innerHTML = '';
+  slideCard = null; clipBox = null;
   $('ready').hidden = true;
 }
 
@@ -988,6 +994,18 @@ $('ttgo').onclick = async () => {
   await Promise.all(Array.from({ length: Math.min(DL_PARALLEL, total) }, worker));
   $('dlbar').hidden = true;
 
+  // TikTok's own version of a slideshow (with its animated stickers, logos and effects), when the service provides one.
+  let official = false;
+  if (items.official) {
+    try {
+      ttSay("Checking for TikTok's own animated version...");
+      const f = await downloadItem({ type: 'video', url: items.official, name: 'tiktok-slideshow.mp4' }, () => {}, true);
+      const card = makeCard({ type: 'video' });
+      $('items').prepend(card.d);
+      fillCard(card, { type: 'video', name: f.name }, f, 1);
+      official = true;
+    } catch {}
+  }
   const got = files.filter(Boolean);
   if (got.length > 1) {
     const bar = document.createElement('div');
@@ -1003,14 +1021,14 @@ $('ttgo').onclick = async () => {
       for (const a of document.querySelectorAll('#items a[data-save]')) { a.click(); await new Promise(r => setTimeout(r, 500)); }
     };
     bar.append(sa);
-    $('ready').prepend(bar);
+    $('tools').append(bar);
   }
   const photoFiles = files.filter((f, i) => f && items[i].type === 'photo');
-  if (photoFiles.length >= 2) $('ready').prepend(slideshowBar(photoFiles, items.music));
+  if (photoFiles.length >= 2) $('tools').prepend(slideshowBar(photoFiles, items.music));
   const kind = items.every(x => x.type === 'photo') ? (total > 1 ? 'photos' : 'photo') : items.every(x => x.type === 'video') ? (total > 1 ? 'videos' : 'video') : 'items';
   if (!got.length) ttSay('Found it, but the browser blocked the downloads. Use the Open buttons below.', true);
   else if (failed) ttSay(`${got.length} of ${total} ${kind} ready, no watermark. ${failed} could not be downloaded here, use the Open button${failed > 1 ? 's' : ''}.`);
-  else if (photoFiles.length >= 2) ttSay(`${got.length} photos ready, no watermark.${failed ? ` ${failed} could not be downloaded here, use the Open button${failed > 1 ? 's' : ''}.` : ''} Tap Make one slideshow video, or Make each photo an animated clip, for the animated version.`);
+  else if (photoFiles.length >= 2) ttSay(`${official ? "TikTok's own animated version is the first video below. " : ''}${got.length} photos ready, no watermark.${failed ? ` ${failed} could not be downloaded here, use the Open button${failed > 1 ? 's' : ''}.` : ''} Tap Make one slideshow video, or Make each photo an animated clip, for the animated version.`);
   else ttSay(items.some(x => x.type === 'video') ? `Ready, no watermark. Want to use the HD feature to get a video ready for WhatsApp Status?` : `${total} ${kind} ready, no watermark.`);
   $('ttgo').disabled = false;
 };
