@@ -1,1 +1,1 @@
-{ "version": 11, "notes": "New flat layout with tabs and list results. Live Photo posts are checked first, with preview and download. Progress shows a percentage." }
+{ "version": 13, "notes": "Download with music or without music. Live Photos get a With music / Without music switch, and videos get Save without sound or music." }

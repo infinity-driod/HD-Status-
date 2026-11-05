@@ -29,5 +29,33 @@
       "text": "text",
       "url": "url"
     }
-  }
+  },
+  "shortcuts": [
+    {
+      "name": "Status compressor",
+      "short_name": "Compressor",
+      "description": "Compress a video for WhatsApp Status",
+      "url": "./#compress",
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Clean a link",
+      "short_name": "Clean",
+      "description": "Get a video without the watermark",
+      "url": "./#clean",
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
 }

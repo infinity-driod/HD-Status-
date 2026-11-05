@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Clean Cut V11 (was Status Compressor V8) -->
+<!-- Clean Cut V13 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -75,6 +75,10 @@ input[type=range]{padding:0;border:0;min-height:32px;background:transparent;acce
 #custom b{color:var(--text)}
 #est,#enhnote,#note{margin:8px 0 0;font-size:.85rem;color:var(--muted)}
 .dim{opacity:.5}
+.cap{font-size:.88rem;margin:0 0 12px}
+.seg{display:flex;gap:8px;margin:0 0 10px}
+.segb{flex:1;min-height:42px;margin:0;padding:6px 12px;border-radius:99px;background:transparent;color:var(--muted);border:1px solid var(--line);font-size:.9rem}
+.segb.on{background:var(--accent);color:#07231A;border-color:var(--accent)}
 details{margin-top:12px;color:var(--muted)}
 summary{cursor:pointer;font-size:.92rem;font-weight:600}
 details p{font-size:.85rem;margin:8px 0 0}
@@ -131,17 +135,17 @@ details p{font-size:.85rem;margin:8px 0 0}
 <main>
   <div class="top">
     <svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><path d="M14 0H28L48 20V34Q48 48 34 48H14Q0 48 0 34V14Q0 0 14 0Z" fill="#2EE6A6"/><path d="M32 0H34Q48 0 48 14V16Z" fill="#2EE6A6" fill-opacity=".4"/><path d="M19 15L35 24L19 33Z" fill="#14161A"/></svg>
-    <div><h1>Clean Cut <small id="ver"></small></h1><p class="tagline">Drop a video. Get it lighter.</p></div>
+    <div><h1>Clean Cut <small id="ver"></small></h1><p class="tagline" id="tagline">Paste a link. Get it clean.</p></div>
   </div>
   <div class="lock"><svg class="ic"><use href="#i-lock"/></svg>Your files never leave your phone</div>
   <div id="upd" class="upd" role="status" hidden><span id="upd-text"></span><button id="upd-btn">Update now</button></div>
   <button id="install" class="sec" hidden>Install app (works offline)</button>
 
   <div class="tabs" role="tablist">
-    <button type="button" class="tab on" data-t="link"><svg class="ic"><use href="#i-paste"/></svg>Paste link</button>
-    <button type="button" class="tab" data-t="file"><svg class="ic"><use href="#i-upload"/></svg>Pick video</button>
+    <button type="button" class="tab on" data-t="clean"><svg class="ic"><use href="#i-paste"/></svg>Clean a link</button>
+    <button type="button" class="tab" data-t="compress"><svg class="ic"><use href="#i-upload"/></svg>Status compressor</button>
   </div>
-  <div class="chips" aria-label="Platform preset">
+  <div class="chips" id="chips" aria-label="Platform detected">
     <button type="button" class="chip" data-p="tiktok">TikTok</button>
     <button type="button" class="chip" data-p="instagram">Instagram</button>
     <button type="button" class="chip" data-p="facebook">Facebook</button>
@@ -149,6 +153,7 @@ details p{font-size:.85rem;margin:8px 0 0}
     <button type="button" class="chip" data-p="whatsapp">WhatsApp Status</button>
   </div>
 
+  <div id="mClean">
   <section class="card" id="pl">
     <div id="linkcard" class="row">
       <input id="tt" type="url" inputmode="url" placeholder="Paste a link" aria-label="Link to a video or photo post">
@@ -173,7 +178,11 @@ details p{font-size:.85rem;margin:8px 0 0}
     </div>
   </section>
 
-  <section class="card" id="pf" hidden>
+  </div>
+
+  <div id="mCompress" hidden>
+  <section class="card" id="pf">
+    <p class="cap">WhatsApp Status compressor. Pick a video from your phone. It is made light enough that WhatsApp keeps it sharp, and long videos are cut into 30-second parts.</p>
     <label class="drop" for="file"><svg class="ic"><use href="#i-upload"/></svg><b id="dropname">Drop a video</b><small>or tap to choose one from your phone</small></label>
     <input id="file" class="vh" type="file" accept="video/*" aria-label="Video">
   </section>
@@ -229,6 +238,7 @@ details p{font-size:.85rem;margin:8px 0 0}
     </div>
   </section>
   <div id="out"></div>
+  </div>
   <p class="or">Use it on your own videos, or with the creator's OK.</p>
 </main>
 
@@ -258,7 +268,7 @@ const MEDIABUNNY = CDN + 'mediabunny@1.61.3/dist/bundles/mediabunny.min.mjs';
 const FAST_MAX_MB = 2048;   // fast mode reads the file in slices, so big files are fine
 const SLOW_MAX_MB = 300;    // the standard converter holds the whole file in memory
 const STALL_MS = 60000;     // fast mode gives up if the encoder shows no progress for this long
-const APP_VERSION = 11;
+const APP_VERSION = 13;
 $('ver').textContent = 'V' + APP_VERSION;
 
 // ---------- Offline install (service worker) and update check ----------
@@ -541,7 +551,8 @@ function setBusy(on) {
   ring(on ? 'run' : 'off');
 }
 
-$('go').onclick = () => compress($('file').files[0]);
+let picked = null;
+$('go').onclick = () => compress(picked);
 $('cancel').onclick = () => {
   if (!busy) return;
   cancelled = true;
@@ -805,7 +816,7 @@ function clearResults() {
   $('items').innerHTML = '';
   $('tools').innerHTML = '';
   $('dbg').hidden = true; $('dbgtxt').textContent = ''; lastRaw = '';
-  slideCard = null; clipBox = null;
+  slideCard = null; clipBox = null; comboCard = null;
   $('ready').hidden = true;
 }
 
@@ -849,9 +860,13 @@ function fillCard(card, it, file, total) {
     card.d.append(b);
   }
   if (it.type === 'video') {
+    const mb = document.createElement('button');
+    mb.className = 'sec'; mb.textContent = it.soundIsMusic ? 'Save without music' : 'Save without sound';
+    mb.onclick = () => saveMuted(file, it.soundIsMusic, mb);
+    card.d.append(mb);
     const h = document.createElement('button');
     h.className = 'hdbtn'; h.textContent = 'Prepare for Status (HD)';
-    h.onclick = () => compress(file);
+    h.onclick = () => sendToCompressor(file);
     card.d.append(h);
   }
   save.dataset.save = '1';
@@ -866,6 +881,61 @@ function failCard(card, it, why) {
   const a = document.createElement('a');
   a.className = 'go'; a.href = it.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Open to save it';
   card.d.replaceChildren(p, a);
+}
+
+// ---------- Save without music ----------
+// Takes the sound off a video without touching the picture (no re-encoding, so it is quick and loses no quality).
+// A video's sound is one track: for a plain video it can include speech, so that version is simply muted.
+// For videos made from photos or Live Photos the sound is the song, so there it is exactly "without music".
+// Returns null when the video has no sound already.
+async function muteVideo(file, isMusic) {
+  const base = file.name.replace(/\.[^.]+$/, '') || 'video';
+  const name = `${base}-${isMusic ? 'no-music' : 'no-sound'}.mp4`;
+  try {
+    const MB = await getMB();
+    const input = new MB.Input({ source: new MB.BlobSource(file), formats: MB.ALL_FORMATS });
+    if (!(await input.getPrimaryAudioTrack())) return null;
+    const output = new MB.Output({ format: new MB.Mp4OutputFormat({ fastStart: 'in-memory' }), target: new MB.BufferTarget() });
+    const conv = await MB.Conversion.init({ input, output, audio: { discard: true }, showWarnings: false });
+    if (!conv.isValid) throw new Error('not supported');
+    await conv.execute();
+    const buf = output.target.buffer;
+    if (!buf || buf.byteLength < 1024) throw new Error('empty file');
+    return new File([buf], name, { type: 'video/mp4' });
+  } catch {}
+  // Fallback: the standard converter, still without re-encoding the picture.
+  cancelled = false;
+  const f = await load();
+  await f.writeFile('in', new Uint8Array(await file.arrayBuffer()));
+  if (!(await probeClip(f, 'in')).audio) return null;
+  const code = await f.exec(['-y', '-i', 'in', '-map', '0:v:0', '-an', '-c:v', 'copy', '-movflags', '+faststart', 'mute.mp4']);
+  if (code !== 0) throw new Error('could not remove the sound');
+  return new File([await f.readFile('mute.mp4')], name, { type: 'video/mp4' });
+}
+
+let muting = false;
+async function saveMuted(file, isMusic, btn) {
+  if (busy || slideBusy || dling || muting) return ttSay('Wait for the current job to finish first.', true);
+  muting = true;
+  const label = btn.textContent, noun = isMusic ? 'music' : 'sound';
+  btn.disabled = true; btn.textContent = `Removing the ${noun}…`;
+  try {
+    const out = await muteVideo(file, isMusic);
+    if (!out) { ttSay('This video has no sound already, so just use Save to phone.'); return; }
+    const url = URL.createObjectURL(out); resultURLs.push(url);
+    const a = document.createElement('a'); a.href = url; a.download = out.name;
+    const save = () => { document.body.append(a); a.click(); a.remove(); };
+    save();
+    btn.onclick = save;                         // if the phone did not save it, tapping again will
+    btn.textContent = `Saved without ${noun}. Tap to save again`;
+    ttSay(`${out.name} saved (${(out.size / 1048576).toFixed(1)} MB). If nothing downloaded, tap the button again.`);
+    return;
+  } catch (e) {
+    ttSay(`Could not remove the ${noun}${e?.message ? ': ' + e.message : '.'}`, true);
+  } finally {
+    killFF(); muting = false; btn.disabled = false;
+    if (btn.textContent.startsWith('Removing')) btn.textContent = label;
+  }
 }
 
 // ---------- Slideshow video (photos + music -> one MP4, like the TikTok slideshow) ----------
@@ -1061,7 +1131,7 @@ function makeSlideshow(photoFiles, musicUrl, sec, wantMusic, btns) {
     slideCard?.d.remove();
     const card = makeCard({ type: 'video' });
     $('items').prepend(card.d);
-    fillCard(card, { type: 'video', name: file.name }, file, 1);
+    fillCard(card, { type: 'video', name: file.name, soundIsMusic: !!music }, file, 1);
     slideCard = card;
     card.d.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
     ttSay(`Slideshow video ready (${how}).${note} Tap Prepare for Status (HD) to compress it, or save it.`);
@@ -1092,7 +1162,7 @@ function makeClips(photoFiles, musicUrl, sec, wantMusic, btns) {
       const file = new File([r.blob], `clip-${i + 1}.mp4`, { type: 'video/mp4' });
       const card = makeCard({ type: 'video' });
       list.append(card.d);
-      fillCard(card, { type: 'video', name: file.name }, file, 1);
+      fillCard(card, { type: 'video', name: file.name, soundIsMusic: !!m }, file, 1);
       made.push(file);
     }
     const bar = document.createElement('div');
@@ -1186,7 +1256,7 @@ $('ttgo').onclick = async () => {
       const f = await downloadItem({ type: 'video', url: items.official, name: 'tiktok-slideshow.mp4' }, () => {}, true);
       const card = makeCard({ type: 'video' });
       $('items').prepend(card.d);
-      fillCard(card, { type: 'video', name: f.name }, f, 1);
+      fillCard(card, { type: 'video', name: f.name, soundIsMusic: true }, f, 1);
       official = true;
     } catch {}
   }
@@ -1220,15 +1290,12 @@ $('ttgo').onclick = async () => {
 };
 
 // ---------- Clean Cut extras ----------
-const PRE = { tiktok: ['1280:23:2500', 0], instagram: ['1280:23:2500', 0], facebook: ['1280:23:2500', 0], youtube: ['1920:20:5000', 0], whatsapp: ['1280:23:2500', 1] };
 const detect = l => /tiktok\.com/i.test(l) ? 'tiktok' : /instagram\.com/i.test(l) ? 'instagram' : /facebook\.com|fb\.watch/i.test(l) ? 'facebook' : /youtu\.?be/i.test(l) ? 'youtube' : null;
+// In Clean mode the chips only show which site the link is from. They no longer change the compressor settings.
 function pickPlatform(p) {
   document.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c.dataset.p === p));
-  const [q, s] = PRE[p];
-  $('q').value = q; $('q').dispatchEvent(new Event('change'));
-  $('split').checked = !!s; $('split').dispatchEvent(new Event('change'));
 }
-document.querySelectorAll('.chip').forEach(c => c.onclick = () => pickPlatform(c.dataset.p));
+document.querySelectorAll('.chip').forEach(c => c.onclick = () => { if (mode === 'clean') pickPlatform(c.dataset.p); });
 $('tt').addEventListener('input', () => { const p = detect($('tt').value); if (p) pickPlatform(p); });
 function wipe() { const c = $('linkcard'); c.classList.remove('wipe'); void c.offsetWidth; c.classList.add('wipe'); }
 
@@ -1265,7 +1332,7 @@ function previewFile(file) {
   $('cmp').replaceChildren(v);
   $('cmpwrap').classList.add('solo'); $('stats').hidden = false;
 }
-$('file').addEventListener('change', () => { const f = $('file').files[0]; if (f && !busy) previewFile(f); $('dropname').textContent = f ? f.name : 'Drop a video'; });
+$('file').addEventListener('change', () => { const f = $('file').files[0]; if (f) picked = f; if (f && !busy) previewFile(f); $('dropname').textContent = picked ? picked.name : 'Drop a video'; });
 
 // Size strip, hero stat and the before/after slider
 function showStats(file, oldMB, newMB) {
@@ -1298,9 +1365,10 @@ async function probeClip(f, name) {
 }
 
 // Join Live Photos into one 9:16 video, keeping each clip's sound
-async function combineLive(files) {
+let comboCard = null;
+async function combineLive(files, tag) {
   if (busy) return;
-  cancelled = false; setBusy(true); clearParts();
+  cancelled = false; setBusy(true);
   let lock, ok = false;
   try { lock = await navigator.wakeLock?.request('screen'); } catch {}
   try {
@@ -1326,13 +1394,84 @@ async function combineLive(files) {
     const code = await f.exec([...args, '-filter_complex', fc, '-map', '[v]', ...(anyAudio ? ['-map', '[a]', '-c:a', 'aac', '-b:a', '128k'] : []), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-movflags', '+faststart', 'live-combined.mp4']);
     f.off('progress', onP);
     if (code !== 0) throw new Error('join failed');
-    addPart(new Blob([await f.readFile('live-combined.mp4')], { type: 'video/mp4' }), 'live-photos-combined.mp4');
+    const joined = new File([await f.readFile('live-combined.mp4')], `live-photos-${tag || 'combined'}.mp4`, { type: 'video/mp4' });
+    comboCard?.d.remove();
+    const card = makeCard({ type: 'video' });
+    $('items').prepend(card.d);
+    fillCard(card, { type: 'video', name: joined.name, soundIsMusic: tag === 'with-music' }, joined, 1);
+    comboCard = card;
+    card.d.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
     say('Joined into one video. Nice.'); ok = true;
   } catch (e) {
     say(cancelled ? 'Cancelled.' : "Couldn't join those. Try again, or with fewer Live Photos.", true);
   } finally {
     killFF(); setBusy(false); if (ok) ring('done'); lock?.release?.();
   }
+}
+
+// ---------- Sound for Live Photo clips ----------
+// The Live Photo clips a service returns are usually silent: the sound of the post is its song. So each clip that has no
+// real sound gets its own slice of the song (clip 1 the first seconds, clip 2 the next, and so on), which also keeps the
+// joined video playing the song without a break. Clips that already have sound are left alone.
+async function probeLoud(f, name) {
+  const lines = [], h = ({ message }) => lines.push(message);
+  f.on('log', h);
+  try { await f.exec(['-i', name, '-vn', '-af', 'volumedetect', '-f', 'null', '-']); } catch {}
+  f.off('log', h);
+  const m = lines.join('\n').match(/mean_volume:\s*(-?[\d.]+|-inf)/);
+  return m && m[1] !== '-inf' ? Number(m[1]) : -Infinity;
+}
+
+async function giveSound(files, musicUrl, report) {
+  let bytes;
+  try {
+    const res = await fetch(musicUrl);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    bytes = new Uint8Array(await res.arrayBuffer());
+    if (bytes.length < 2048) throw new Error('empty file');
+  } catch (e) {
+    report.push('song: could not be fetched (' + (e.message || e) + ')');
+    return { files, added: 0, note: " The post's song could not be fetched, so the clips have no sound." };
+  }
+  cancelled = false;
+  const out = files.slice();
+  let added = 0, failed = 0, offset = 0;
+  try {
+    const f = await load();
+    await f.writeFile('music', bytes);
+    const md = (await probeClip(f, 'music')).dur;
+    report.push(`song: ${bytes.length} bytes, ${md ? md.toFixed(1) + ' s' : 'length unknown'}`);
+    for (let i = 0; i < files.length; i++) {
+      $('dlbar').value = i / files.length;
+      const nm = `c${i}`, o = `o${i}.mp4`;
+      await f.writeFile(nm, new Uint8Array(await files[i].arrayBuffer()));
+      const pr = await probeClip(f, nm);
+      const dur = pr.dur || await duration(files[i]).catch(() => 0) || 3;
+      const sound = pr.audio ? (await probeLoud(f, nm)) > -50 : false;
+      report.push(`clip ${i + 1}: ${dur.toFixed(1)} s, ${pr.audio ? (sound ? 'has sound' : 'audio track but silent') : 'no audio track'}`);
+      if (!sound) {
+        const start = md > 0 ? offset % md : offset;
+        const code = await f.exec([
+          '-y', '-i', nm, '-stream_loop', '-1', '-ss', String(start), '-i', 'music',
+          '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '128k',
+          '-t', String(dur), '-movflags', '+faststart', o,
+        ]);
+        if (code === 0) {
+          out[i] = new File([await f.readFile(o)], files[i].name, { type: 'video/mp4' });
+          added++;
+        } else { failed++; report.push(`clip ${i + 1}: adding the song failed`); }
+        try { await f.deleteFile(o); } catch {}
+      }
+      try { await f.deleteFile(nm); } catch {}
+      offset += dur;
+    }
+    $('dlbar').value = 1;
+  } catch (e) {
+    report.push('sound step stopped: ' + (e.message || e));
+    failed = failed || 1;
+  } finally { killFF(); }
+  const note = added ? ` The post's song was added to ${added} clip${added > 1 ? 's' : ''}.` : failed ? ' The song could not be added, so the clips have no sound.' : '';
+  return { files: out, added, note };
 }
 
 // ---------- Live Photo posts: check for them first, skip the still photos ----------
@@ -1356,47 +1495,121 @@ async function showLive(items) {
   };
   await Promise.all(Array.from({ length: Math.min(DL_PARALLEL, total) }, worker));
   $('dlbar').hidden = true;
-  const made = got.filter(Boolean).map((f, k) => new File([f], `live-photo-${k + 1}.mp4`, { type: f.type || 'video/mp4' }));
-  if (!made.length) return 0;           // nothing usable: fall back to the photos
+  const plain = got.filter(Boolean).map((f, k) => new File([f], `live-photo-${k + 1}.mp4`, { type: f.type || 'video/mp4' }));
+  if (!plain.length) return 0;           // nothing usable: fall back to the photos
+  const soundReport = [];
+  let soundNote = '', withSong = null;
+  if (items.music) {
+    ttSay("Adding the post's song to the clips…");
+    $('dlbar').hidden = false; $('dlbar').value = 0;
+    const r = await giveSound(plain, items.music, soundReport);
+    if (r.added) withSong = r.files;
+    soundNote = r.note;
+    $('dlbar').hidden = true;
+  } else {
+    soundReport.push('song: this post came without one');
+    soundNote = ' No song came with this post, so the clips keep only their own sound.';
+  }
+  // Two versions of every clip when a song was added: with the song, and exactly as they came (without music).
+  const noMusic = withSong ? plain.map((f, k) => new File([f], `live-photo-${k + 1}-no-music.mp4`, { type: f.type || 'video/mp4' })) : plain;
+  let musicOn = !!withSong;
+  const cur = () => (musicOn ? withSong : noMusic);
+  const urlOf = new Map();
+  const urlFor = f => { let u = urlOf.get(f); if (!u) { u = URL.createObjectURL(f); urlOf.set(f, u); resultURLs.push(u); } return u; };
+
   const head = document.createElement('div'); head.className = 'lhead';
-  head.innerHTML = `<b>Live Photos</b><small>${made.length} clip${made.length > 1 ? 's' : ''}</small>`;
+  head.innerHTML = `<b>Live Photos</b><small>${plain.length} clip${plain.length > 1 ? 's' : ''}</small>`;
   const list = document.createElement('div');
-  made.forEach((f, k) => {
-    const url = URL.createObjectURL(f); resultURLs.push(url);
+  const rows = plain.map((_, k) => {
     const r = document.createElement('div'); r.className = 'lrow';
     r.innerHTML = `<button class="thumb" type="button" aria-label="Preview Live Photo ${k + 1}"><video muted playsinline preload="metadata"></video><svg class="ic"><use href="#i-play"/></svg></button>` +
-      `<div class="meta"><b>Live Photo ${k + 1}</b><small>${(f.size / 1048576).toFixed(1)} MB · tap to preview</small></div>` +
+      `<div class="meta"><b>Live Photo ${k + 1}</b><small></small></div>` +
       `<a class="dlb" aria-label="Download Live Photo ${k + 1}"><svg class="ic"><use href="#i-download"/></svg></a>`;
-    const v = r.querySelector('video'); v.src = url; v.onloadedmetadata = () => { v.currentTime = 0.1; };
-    const a = r.querySelector('a'); a.href = url; a.download = f.name; a.dataset.save = '1';
-    r.querySelector('.thumb').onclick = () => openViewer(url, f.name);
+    const v = r.querySelector('video'); v.src = urlFor(noMusic[k]); v.onloadedmetadata = () => { v.currentTime = 0.1; };
+    const a = r.querySelector('a'); a.dataset.save = '1';
+    r.querySelector('.thumb').onclick = () => openViewer(urlFor(cur()[k]), cur()[k].name);
     list.append(r);
+    return { a, small: r.querySelector('small') };
   });
-  $('items').append(head, list);
-  if (made.length > 1) {
+  const segBtns = [];
+  const refresh = () => {
+    rows.forEach((r, k) => {
+      const f = cur()[k];
+      r.a.href = urlFor(f); r.a.download = f.name;
+      r.small.textContent = `${(f.size / 1048576).toFixed(1)} MB · tap to preview`;
+    });
+    segBtns.forEach((b, i) => b.classList.toggle('on', (i === 0) === musicOn));
+  };
+  if (withSong) {
+    const seg = document.createElement('div'); seg.className = 'seg';
+    ['With music', 'Without music'].forEach((label, i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'segb'; b.textContent = label;
+      b.onclick = () => { musicOn = i === 0; refresh(); };
+      segBtns.push(b); seg.append(b);
+    });
+    $('items').append(head, seg, list);
+  } else $('items').append(head, list);
+  refresh();
+  if (plain.length > 1) {
     const bar = document.createElement('div'); bar.className = 'lbar';
     const all = document.createElement('button');
     all.innerHTML = '<svg class="ic"><use href="#i-download"/></svg>Download all';
     all.onclick = async () => { for (const a of list.querySelectorAll('a[data-save]')) { a.click(); await new Promise(r => setTimeout(r, 500)); } };
     const cb = document.createElement('button'); cb.className = 'sec';
     cb.innerHTML = '<svg class="ic"><use href="#i-layers"/></svg>Combine into one video';
-    cb.onclick = () => combineLive(made);
+    cb.onclick = () => combineLive(cur(), withSong ? (musicOn ? 'with-music' : 'no-music') : '');
     bar.append(all, cb); $('tools').append(bar);
   }
-  if (lastRaw) { $('dbgtxt').textContent = lastRaw; $('dbg').hidden = false; }
-  ttSay(`${made.length} Live Photo clip${made.length > 1 ? 's' : ''} ready${made.length < total ? ` (${total - made.length} could not be fetched)` : ''}. Tap one to preview.`);
+  $('dbgtxt').textContent = 'SOUND STEP\n' + soundReport.join('\n') + (lastRaw ? '\n\nSERVICE ANSWER\n' + lastRaw : '');
+  $('dbg').hidden = false;
+  ttSay(`${plain.length} Live Photo clip${plain.length > 1 ? 's' : ''} ready${plain.length < total ? ` (${total - plain.length} could not be fetched)` : ''}.${soundNote}${withSong ? ' Use the With music / Without music switch to choose which version you download.' : ''} Tap one to preview.`);
   navigator.vibrate?.(30);
-  return made.length;
+  return plain.length;
 }
 
-// ---------- Tabs ----------
-function tab(t) {
-  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.t === t));
-  $('pl').hidden = t !== 'link'; $('pf').hidden = t !== 'file';
-  $('ttgo').hidden = t !== 'link'; $('go').hidden = t !== 'file';
+// ---------- Modes ----------
+// Clean a link: fetch media without the watermark. Its videos can be sent on to the compressor.
+// Status compressor: stands on its own. Nothing in it leads back into Clean a link.
+let mode = 'clean';
+function setMode(m) {
+  mode = m;
+  const clean = m === 'clean';
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.t === m));
+  $('mClean').hidden = !clean; $('mCompress').hidden = clean;
+  $('ttgo').hidden = !clean; $('go').hidden = clean;
+  $('tagline').textContent = clean ? 'Paste a link. Get it clean.' : 'WhatsApp Status compressor.';
+  document.querySelectorAll('.chip').forEach(c => { c.hidden = (c.dataset.p === 'whatsapp') === clean; });
+  pickPlatform(clean ? detect($('tt').value) : 'whatsapp');
+  try { localStorage.setItem('sc_mode', m); } catch {}
+  try { history.replaceState(null, '', location.pathname + '#' + m); } catch {}
 }
-document.querySelectorAll('.tab').forEach(b => b.onclick = () => tab(b.dataset.t));
-tab('link');
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+  if (b.dataset.t === mode) return;
+  if (busy || dling || slideBusy) return say('Wait for the current job to finish, or cancel it, then switch.', true);
+  setMode(b.dataset.t);
+  say(''); ring('off');
+});
+
+// Clean -> compressor: opens the compressor with this video loaded and starts it.
+function sendToCompressor(file) {
+  if (busy || slideBusy || dling) return say('Wait for the current job to finish first.', true);
+  setMode('compress');
+  picked = file;
+  $('dropname').textContent = file.name;
+  compress(file);
+}
+
+// Where to start: a shared link opens Clean, a #compress or #clean address opens that mode, otherwise the last one used.
+(() => {
+  let m = 'clean';
+  const h = (location.hash || '').replace('#', '');
+  let saved; try { saved = localStorage.getItem('sc_mode'); } catch {}
+  if ($('tt').value) m = 'clean';
+  else if (h === 'compress' || h === 'clean') m = h;
+  else if (saved === 'compress') m = 'compress';
+  setMode(m);
+})();
 </script>
 </body>
 </html>
