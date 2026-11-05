@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Clean Cut V13 -->
+<!-- Clean Cut V16 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -182,16 +182,16 @@ details p{font-size:.85rem;margin:8px 0 0}
 
   <div id="mCompress" hidden>
   <section class="card" id="pf">
-    <p class="cap">WhatsApp Status compressor. Pick a video from your phone. It is made light enough that WhatsApp keeps it sharp, and long videos are cut into 30-second parts.</p>
+    <p class="cap">Pick a video. Clean Cut looks at it and picks the best settings by itself. Long videos are cut into 30-second parts.</p>
     <label class="drop" for="file"><svg class="ic"><use href="#i-upload"/></svg><b id="dropname">Drop a video</b><small>or tap to choose one from your phone</small></label>
     <input id="file" class="vh" type="file" accept="video/*" aria-label="Video">
   </section>
 
-  <details class="card" id="settings">
+  <details class="card" id="settings" hidden>
     <summary>Quality and options</summary>
     <select id="q" aria-label="Quality">
-      <option value="1280:23:2500">Balanced (recommended)</option>
-      <option value="1920:20:5000">Sharper, bigger file</option>
+      <option value="1920:18:auto15">Best quality (recommended)</option>
+      <option value="1280:21:auto10">Balanced</option>
       <option value="960:27:1200">Smaller file</option>
       <option value="custom">Custom...</option>
     </select>
@@ -207,6 +207,7 @@ details p{font-size:.85rem;margin:8px 0 0}
       <p id="est"></p>
     </div>
     <label class="check"><input id="split" type="checkbox" checked> Split into 30-second parts</label>
+    <label class="check"><input id="sharp" type="checkbox" checked> Sharpen (recommended, makes soft videos crisper)</label>
     <label class="check" id="fastrow"><input id="fast" type="checkbox" checked> Fast mode (uses your phone's video chip)</label>
     <label class="check"><input id="enh" type="checkbox"> Enhance (sharper, cleaner, richer color)</label>
     <div id="enhpanel" hidden>
@@ -219,8 +220,8 @@ details p{font-size:.85rem;margin:8px 0 0}
       <label class="check"><input id="up" type="checkbox"> Upscale small videos to the chosen size</label>
       <p id="enhnote">Enhance runs in standard mode, so it is slower than Fast mode and limited to files under about 300 MB. It cannot add real detail, it only makes what is there look a little crisper and cleaner. Keep it Light unless you have tested it on your own status.</p>
     </div>
-    <div id="note" role="status"></div>
   </details>
+  <div id="note" role="status"></div>
 
   <section class="card" id="stats" hidden>
     <p class="hero" id="hero"></p>
@@ -268,8 +269,10 @@ const MEDIABUNNY = CDN + 'mediabunny@1.61.3/dist/bundles/mediabunny.min.mjs';
 const FAST_MAX_MB = 2048;   // fast mode reads the file in slices, so big files are fine
 const SLOW_MAX_MB = 300;    // the standard converter holds the whole file in memory
 const STALL_MS = 60000;     // fast mode gives up if the encoder shows no progress for this long
-const APP_VERSION = 13;
+const APP_VERSION = 16;
 $('ver').textContent = 'V' + APP_VERSION;
+{ let taps = 0, t0 = 0; // tap the version label 5 times to show or hide the manual settings
+  $('ver').onclick = () => { const n = Date.now(); taps = n - t0 < 1500 ? taps + 1 : 1; t0 = n; if (taps >= 5) { taps = 0; $('settings').hidden = !$('settings').hidden; } }; }
 
 // ---------- Offline install (service worker) and update check ----------
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -298,11 +301,11 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) chec
 
 // ---------- Remembered settings ----------
 const fastAvailable = typeof VideoEncoder === 'function' && typeof VideoDecoder === 'function';
-const loadPrefs = () => { try { return JSON.parse(localStorage.getItem('sc_prefs')) || {}; } catch { return {}; } };
+const loadPrefs = () => ({}); // settings are automatic now, so nothing old is restored
 const savePrefs = () => {
   try {
     localStorage.setItem('sc_prefs', JSON.stringify({
-      q: $('q').value, split: $('split').checked, fast: $('fast').checked, kbps: $('kbps').value, res: $('res').value,
+      q: $('q').value, split: $('split').checked, fast: $('fast').checked, kbps: $('kbps').value, res: $('res').value, sharp: $('sharp').checked,
       enh: $('enh').checked, enhlvl: $('enhlvl').value, up: $('up').checked,
     }));
   } catch {}
@@ -331,12 +334,13 @@ function updateCustom() {
   if (typeof p.split === 'boolean') $('split').checked = p.split;
   if (typeof p.fast === 'boolean') $('fast').checked = p.fast;
   if (typeof p.enh === 'boolean') $('enh').checked = p.enh;
+  if (typeof p.sharp === 'boolean') $('sharp').checked = p.sharp;
   if (p.enhlvl && [...$('enhlvl').options].some(o => o.value === p.enhlvl)) $('enhlvl').value = p.enhlvl;
   if (typeof p.up === 'boolean') $('up').checked = p.up;
   if (p.kbps >= 500 && p.kbps <= 8000) $('kbps').value = p.kbps;
   if (p.res && [...$('res').options].some(o => o.value === p.res)) $('res').value = p.res;
   if (!fastAvailable) $('fastrow').hidden = true;
-  ['q', 'split', 'fast', 'kbps', 'res', 'enh', 'enhlvl', 'up'].forEach(id => $(id).addEventListener('change', savePrefs));
+  ['q', 'split', 'fast', 'kbps', 'res', 'enh', 'enhlvl', 'up', 'sharp'].forEach(id => $(id).addEventListener('change', savePrefs));
   $('enh').addEventListener('change', updateEnh);
   ['q', 'kbps'].forEach(id => $(id).addEventListener('input', updateCustom));
   $('q').addEventListener('change', updateCustom);
@@ -389,6 +393,25 @@ function killFF() {
   try { f?.terminate(); } catch {}
 }
 
+// Bitrate for one part. "autoN" means: spend about N MB on this part. A short part gets a much higher
+// bitrate than a 30-second one, which is why short clips stay sharp. Never more than the source can use.
+const KEEP_MB = 15.5;       // a video this small and this short is handed back untouched
+function partKbps(spec, partSec, srcKbps) {
+  const m = /^auto(\d+)$/.exec(String(spec));
+  if (!m) return Number(spec);
+  const budget = Math.floor(Number(m[1]) * 8388.608 / Math.max(partSec, 1) - 128);
+  const cap = Math.max(1500, srcKbps * 1.2);
+  return Math.round(Math.max(800, Math.min(budget, 12000, cap)));
+}
+const probe = file => new Promise((res, rej) => {
+  const v = document.createElement('video');
+  const url = URL.createObjectURL(file);
+  v.preload = 'metadata';
+  v.onloadedmetadata = () => { res({ dur: v.duration, w: v.videoWidth, h: v.videoHeight }); URL.revokeObjectURL(url); };
+  v.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Could not read this video.')); };
+  v.src = url;
+});
+
 const duration = file => new Promise((res, rej) => {
   const v = document.createElement('video');
   const url = URL.createObjectURL(file);
@@ -398,6 +421,61 @@ const duration = file => new Promise((res, rej) => {
   v.src = url;
 });
 
+// Sharpen: a mild luma-only unsharp mask. Many soft videos (re-saved, already compressed) look much crisper with it.
+// The standard converter uses ffmpeg's unsharp filter. Fast mode does the same maths on the phone's GPU (WebGL).
+function makeSharpener(amount) {
+  let src, sctx, out, gl, tex;
+  const init = (w, h) => {
+    src = new OffscreenCanvas(w, h); sctx = src.getContext('2d');
+    out = new OffscreenCanvas(w, h);
+    gl = out.getContext('webgl', { alpha: false, premultipliedAlpha: false, preserveDrawingBuffer: true });
+    if (!gl) throw new Error('WebGL is not available');
+    const sh = (type, code) => {
+      const o = gl.createShader(type); gl.shaderSource(o, code); gl.compileShader(o);
+      if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error('shader: ' + gl.getShaderInfoLog(o));
+      return o;
+    };
+    const pr = gl.createProgram();
+    gl.attachShader(pr, sh(gl.VERTEX_SHADER, 'attribute vec2 p;varying vec2 uv;void main(){uv=p*.5+.5;gl_Position=vec4(p,0.,1.);}'));
+    gl.attachShader(pr, sh(gl.FRAGMENT_SHADER, `precision highp float;
+uniform sampler2D t;uniform vec2 px;uniform float amt;varying vec2 uv;
+float Y(vec3 c){return dot(c,vec3(.2126,.7152,.0722));}
+float k(int i){return (i==0||i==4)?1.:((i==1||i==3)?4.:6.);}
+void main(){
+  vec3 c=texture2D(t,uv).rgb;
+  float b=0.;
+  for(int i=0;i<5;i++){for(int j=0;j<5;j++){
+    b+=k(i)*k(j)*Y(texture2D(t,uv+vec2(float(i-2),float(j-2))*px).rgb);
+  }}
+  b/=256.;
+  gl_FragColor=vec4(clamp(c+amt*(Y(c)-b),0.,1.),1.);
+}`));
+    gl.linkProgram(pr);
+    if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) throw new Error('shader link failed');
+    gl.useProgram(pr);
+    const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(pr, 'p'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform2f(gl.getUniformLocation(pr, 'px'), 1 / w, 1 / h);
+    gl.uniform1f(gl.getUniformLocation(pr, 'amt'), amount);
+    tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.viewport(0, 0, w, h);
+  };
+  // Used as Mediabunny's per-frame `process` function.
+  return sample => {
+    if (!gl) init(sample.displayWidth, sample.displayHeight);
+    sample.draw(sctx, 0, 0);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    return out;
+  };
+}
+
 // Enhance filters, applied after resizing: denoise (hqdn3d), sharpen (unsharp), contrast and color (eq).
 const ENH = {
   light:  'hqdn3d=1.5:1.5:3:3,unsharp=5:5:0.5:5:5:0.0,eq=contrast=1.03:saturation=1.08',
@@ -406,14 +484,16 @@ const ENH = {
 };
 
 // Returns whether the enhance filters were really applied. `enhance` is null or { filters, up }.
-async function slowCompress(file, side, crf, kbps, split, from, enhance) {
+async function slowCompress(file, side, crf, kbps, split, from, enhance, sharp) {
   if (file.size > SLOW_MAX_MB * 1048576) throw new Error(`This file is too big for the standard method (limit about ${SLOW_MAX_MB} MB).`);
   const dur = await duration(file);
   const count = split ? Math.max(1, Math.ceil((dur - 0.5) / 30)) : 1;
+  const srcKbps = file.size * 8 / 1000 / dur;
   const f = await load();
   if (cancelled) throw new Error('cancelled');
   await f.writeFile('in', new Uint8Array(await file.arrayBuffer()));
-  let enh = enhance ? ',' + enhance.filters : '';
+  const sharpChain = sharp ? `,unsharp=5:5:${sharp}:5:5:0.0` : '';
+  let enh = enhance ? ',' + enhance.filters : sharpChain;
   const box = enhance?.up ? `scale=${side}:${side}` : `scale=min(${side}\\,iw):min(${side}\\,ih)`;
   const vf = `${box}:force_original_aspect_ratio=decrease:force_divisible_by=2${enhance ? ':flags=lanczos' : ''}`;
   let enhFailed = false;
@@ -424,16 +504,19 @@ async function slowCompress(file, side, crf, kbps, split, from, enhance) {
     f.on('progress', onProg);
     $('bar').value = 0;
     say(`Compressing part ${i + 1} of ${count}${enh ? ' with Enhance (slow)' : ''}. Keep this tab open.`);
+    const partSec = split ? Math.min(30, dur - i * 30) : dur;
+    const pk = partKbps(kbps, partSec, srcKbps);
+    // aq-mode=3 gives dark areas (sunsets, night shots) more bits, so they stop turning to mush.
     const run = chain => f.exec([
       '-y', '-ss', String(i * 30), '-i', 'in', ...(split ? ['-t', '30'] : []),
-      '-vf', chain, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', crf,
-      '-maxrate', `${kbps}k`, '-bufsize', `${kbps * 2}k`, '-pix_fmt', 'yuv420p',
+      '-vf', chain, '-c:v', 'libx264', '-preset', 'faster', '-profile:v', 'high', '-crf', crf,
+      '-x264-params', 'aq-mode=3', '-maxrate', `${pk}k`, '-bufsize', `${pk * 2}k`, '-pix_fmt', 'yuv420p',
       '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', name,
     ]);
     let code = await run(vf + enh);
     if (code !== 0 && enh && !cancelled) {
       // The enhance filters may be missing from this converter build: carry on without them.
-      enh = ''; enhFailed = true;
+      enh = sharpChain; enhFailed = true;
       try { await f.deleteFile(name); } catch {}
       say(`Compressing part ${i + 1} of ${count}. Keep this tab open.`);
       code = await run(vf);
@@ -457,7 +540,7 @@ const even = n => Math.max(2, Math.round(n / 2) * 2);
 // Tracks we must not lose silently (a lost audio track would make a muted video).
 const LOST = ['unknown_source_codec', 'undecodable_source_codec', 'no_encodable_target_codec'];
 
-async function fastCompress(file, side, kbps, split) {
+async function fastCompress(file, side, kbpsSpec, split, sharp) {
   const MB = await getMB();
   const open = () => new MB.Input({ source: new MB.BlobSource(file), formats: MB.ALL_FORMATS });
 
@@ -469,15 +552,17 @@ async function fastCompress(file, side, kbps, split) {
   const k = Math.min(1, side / track.displayWidth, side / track.displayHeight);
   const w = even(track.displayWidth * k), h = even(track.displayHeight * k);
   const count = split ? Math.max(1, Math.ceil((dur - 0.5) / 30)) : 1;
+  const srcKbps = file.size * 8 / 1000 / dur;
 
   for (let i = partFiles.length; i < count; i++) {
     if (cancelled) throw new Error('cancelled');
+    const kbps = partKbps(kbpsSpec, split ? Math.min(30, dur - i * 30) : dur, srcKbps);
     say(`Compressing part ${i + 1} of ${count} (fast mode). Keep this tab open.`);
     $('bar').value = 0;
     const output = new MB.Output({ format: new MB.Mp4OutputFormat({ fastStart: 'in-memory' }), target: new MB.BufferTarget() });
     const conv = await MB.Conversion.init({
       input: open(), output, showWarnings: false,
-      video: { width: w, height: h, fit: 'fill', codec: 'avc', bitrate: kbps * 1000, forceTranscode: true },
+      video: { width: w, height: h, fit: 'fill', codec: 'avc', bitrate: kbps * 1000, forceTranscode: true, ...(sharp ? { process: makeSharpener(1.5 * sharp) } : {}) },
       ...(split ? { trim: { start: i * 30, end: Math.min(dur, (i + 1) * 30) } } : {}),
     });
     if (!conv.isValid) throw new Error('this video format is not supported');
@@ -541,7 +626,7 @@ function addShareAll() {
 }
 
 // ---------- Compress ----------
-let busy = false;
+let busy = false, fastBroken = false;
 function setBusy(on) {
   busy = on;
   $('go').disabled = on;
@@ -565,10 +650,10 @@ async function compress(file) {
   if (busy) return;
   if (!file) return say('Choose a video first.', true);
   const wantEnh = $('enh').checked;
-  const wantFast = fastAvailable && $('fast').checked && !wantEnh;
+  const wantFast = fastAvailable && $('fast').checked && !wantEnh && !fastBroken;
   const maxMB = wantFast ? FAST_MAX_MB : SLOW_MAX_MB;
   if (file.size > maxMB * 1048576) {
-    return say(`This file is too big to convert here (limit about ${maxMB} MB)${!wantFast && fastAvailable ? '. Turn on Fast mode for bigger files.' : '.'}`, true);
+    return say(`This file is too big to convert here (limit about ${maxMB} MB).`, true);
   }
   cancelled = false;
   setBusy(true); clearParts(); previewFile(file);
@@ -579,28 +664,46 @@ async function compress(file) {
     const [side, crf, kbps] = quality();
     const split = $('split').checked;
     let mode = 'standard mode';
-    let fastDone = false;
-    if (wantFast) {
+    let fastDone = false, kept = false;
+    // The app senses the video. Bits per pixel per frame says how soft it is (30 fps assumed):
+    // soft, heavily compressed videos get the full sharpen, crisper ones a gentle touch, and a crisp,
+    // short, light MP4 is left exactly as it is because any re-encode could only lose quality.
+    let sharpAmt = $('sharp').checked && !wantEnh ? 1 : 0;
+    try {
+      const info = await probe(file);
+      if (sharpAmt && info.dur > 0 && info.w > 0) {
+        const bpp = file.size * 8 / (info.dur * info.w * info.h * 30);
+        if (bpp >= 0.12) {
+          sharpAmt = 0.5;
+          if (String(kbps).startsWith('auto') && /mp4/i.test(file.type) && file.size <= KEEP_MB * 1048576 && info.dur <= 30.5 && Math.max(info.w, info.h) <= 1920) {
+            addPart(file, 'status-1.mp4');
+            kept = true; fastDone = true; mode = 'original kept, no quality lost';
+          }
+        } else if (bpp >= 0.08) sharpAmt = 0.6;
+      }
+    } catch {}
+    if (wantFast && !kept) {
       try {
-        await fastCompress(file, Number(side), Number(kbps), split);
-        fastDone = true; mode = 'fast mode';
+        await fastCompress(file, Number(side), kbps, split, sharpAmt);
+        fastDone = true; mode = sharpAmt ? 'fast mode, sharpened' : 'fast mode';
       } catch (e) {
         if (cancelled) throw e;
-        // Anything went wrong: turn fast mode off and carry on with the standard converter,
-        // keeping any parts that already finished.
-        $('fast').checked = false; savePrefs();
-        $('note').textContent = `Fast mode did not work on this phone (${e.message || e}), so the standard method was used. Fast mode is now off. You can turn it on again to retry.`;
+        // Anything went wrong: carry on with the standard converter, keeping any parts that already finished,
+        // and do not try the fast way again until the app is reopened.
+        fastBroken = true;
+        $('note').textContent = 'The quick method did not work on this phone, so the slower one was used. It can take a little longer.';
       }
     }
     if (!fastDone) {
       const enhance = wantEnh ? { filters: ENH[$('enhlvl').value] || ENH.light, up: $('up').checked } : null;
-      if (await slowCompress(file, side, crf, kbps, split, partFiles.length, enhance)) mode = 'standard mode, enhanced';
+      if (await slowCompress(file, side, crf, kbps, split, partFiles.length, enhance, sharpAmt)) mode = 'standard mode, enhanced';
+      else if (sharpAmt) mode = 'standard mode, sharpened';
     }
     addShareAll();
     const n = partFiles.length;
     const newMB = partFiles.reduce((t, f) => t + f.size, 0) / 1048576, oldMB = file.size / 1048576;
     showStats(file, oldMB, newMB);
-    say((newMB < oldMB ? `Saved ${(oldMB - newMB).toFixed(1)} MB. Nice.` : 'Done.') + ` ${n} part${n > 1 ? 's' : ''} ready (${mode}). Share to WhatsApp, then pick My status.`);
+    say((newMB < oldMB ? `Saved ${(oldMB - newMB).toFixed(1)} MB. Nice.` : 'Done.') + ` ${n} part${n > 1 ? 's' : ''} ready${kept ? ' (already crisp, kept as it is)' : ''}. Share to WhatsApp, then pick My status.`);
     ok = true;
   } catch (e) {
     if (cancelled) {
