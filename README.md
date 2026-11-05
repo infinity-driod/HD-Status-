@@ -1,4 +1,4 @@
-# Status Compressor V5
+# Status Compressor V7
 
 Shrinks a video so WhatsApp leaves it nearly untouched when you post it to Status, and cuts long clips into 30-second parts. Everything runs in your phone's browser. Nothing is uploaded and no server is needed.
 
@@ -17,7 +17,23 @@ Upload all of these every time you release a version:
 3. Check **Settings > Pages** is set to deploy from `main`, folder `/ (root)`.
 4. After about a minute, open `https://YOUR-USERNAME.github.io/YOUR-REPO/`.
 
-## Fast mode (new in V5)
+## Enhance (new in V7)
+- Tick **Enhance** to add three gentle touches after resizing: light noise cleanup, sharpening, and a small lift in contrast and color. Pick **Light**, **Medium** or **Strong**. Light is the one to start with.
+- Optional **Upscale small videos to the chosen size** stretches low-resolution clips up to your chosen size with a high-quality resize filter (Lanczos). It can make small clips look a bit cleaner on screen and gives WhatsApp more pixels to work with, but it does not add real detail and it makes files bigger.
+- **It cannot make a video look like real 4K.** The detail has to exist in the original. Enhance only makes what is there look a little crisper. Strong settings can look over-processed, and the noise cleanup can soften fine texture. On clips that are already sharp and clean you may see little change.
+- Enhance runs in the standard converter, so Fast mode is switched off while it is on. It is noticeably slower than Fast mode, and files over about 300 MB are not supported.
+- If this converter build is missing the filters, the app says so and compresses without them rather than failing.
+- Your Enhance choices are remembered.
+
+## Custom quality
+- Pick **Custom...** in the quality list to set your own **video bitrate** (0.5 to 8 Mbps) and the **largest side** of the picture (960, 1280 or 1920 px).
+- A live estimate shows the size of each 30-second part. Audio is counted at about 128 kbps.
+- WhatsApp does not publish how much it compresses Status videos. A commonly quoted cap is about 16 MB per clip, but that is not official and sources disagree. The way to find your sweet spot is to try a few settings, post each to your own status, and keep the sharpest one that still looks untouched.
+- In Fast mode the encoder aims at your bitrate. In standard mode the bitrate is a ceiling on top of CRF 21, so a simple clip can come out smaller than the estimate.
+- Going very high does not guarantee a better result: a file well above WhatsApp's limits gets re-encoded harder, which is what you are trying to avoid.
+- Your custom values are remembered.
+
+## Fast mode
 - **Fast mode** is a checkbox, on by default. It uses your phone's built-in video encoder (WebCodecs) instead of the slow software converter. It should be far quicker, but I could not time it on a real phone, so your speed will depend on the phone.
 - It also reads your video in slices instead of loading the whole file into memory, so the size limit is about 2 GB instead of 300 MB.
 - **It falls back by itself.** If your phone or browser cannot do it, the video format is unsupported, the encoder errors, or it stops responding for 60 seconds, the app switches to the standard converter and carries on from the part it was on. Parts already finished are kept. Fast mode is then turned off and a note explains why. Tick it again to retry.
@@ -47,7 +63,7 @@ Upload all of these every time you release a version:
 This uses an unofficial third-party service (tikwm.com), so the link you paste is sent to it, and it can change or stop working. The address is `TIKTOK_API` near the bottom of `index.html`. Only save videos you have the right to reuse, and credit the creator.
 
 ## Updates
-The page shows its version next to the title (V5). Whenever you open it or come back to the tab, it checks `version.json`. If a newer version has been uploaded, a green bar appears with an **Update now** button.
+The page shows its version next to the title (V7). Whenever you open it or come back to the tab, it checks `version.json`. If a newer version has been uploaded, a green bar appears with an **Update now** button.
 
 ## Good to know
 - Standard mode is slow on phones: expect a few minutes per 30-second clip. Keep the screen on in either mode.
@@ -62,6 +78,7 @@ The page shows its version next to the title (V5). Whenever you open it or come 
 | Problem | Fix |
 |---|---|
 | Note says "Fast mode did not work on this phone" | Nothing is wrong: the standard method finished the job. Tick Fast mode again to retry, or leave it off. |
+| Enhance makes the video look over-sharp or plastic | Use Light, or turn Enhance off. |
 | Fast mode result has no sound | Turn Fast mode off and run it again, then tell me which phone and video it was. |
 | "Could not load the converter" | Check your connection and try again. After one good load it is saved for offline use. |
 | "Conversion failed" | Try the Smaller preset, or a shorter or smaller video. |
@@ -74,6 +91,8 @@ The page shows its version next to the title (V5). Whenever you open it or come 
 | Paste button missing or fails | Press and hold in the link box and paste by hand. |
 
 ## Version history
+- **V7**: Enhance option (noise cleanup, sharpening, color lift, optional upscale), with automatic fallback if the filters are missing.
+- **V6**: Custom quality with a bitrate slider, picture size choice and a live file-size estimate.
 - **V5**: Fast mode using the phone's hardware encoder, with automatic fallback to the standard converter. Big-file limit raised to about 2 GB in fast mode. Remembers your settings.
 - **V4**: Cancel button. Memory cleanup. Installable and works offline. Share all parts at once. Paste button and share-to-app for TikTok links.
 - **V3**: TikTok link download without watermark, with a prompt to use the HD feature. App description text removed.
