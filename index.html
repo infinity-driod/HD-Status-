@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Status Compressor V7 -->
+<!-- Status Compressor V8 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -45,6 +45,12 @@ small{font-size:.8rem;font-weight:400;color:var(--muted)}
 input[type=range]{padding:0;border:0;accent-color:var(--accent)}
 #est,#enhnote{margin:8px 0 0;font-size:.85rem}
 .dim{opacity:.5}
+#items img{width:100%;max-height:340px;object-fit:contain;border-radius:10px;background:#000}
+#items .part:first-child{margin-top:0;border-top:0;padding-top:0}
+#ready>button{margin-top:12px}
+details{margin-top:12px;color:var(--muted)}
+summary{cursor:pointer;font-size:.9rem}
+details p{font-size:.85rem;margin:8px 0 0}
 </style>
 </head>
 <body>
@@ -53,17 +59,20 @@ input[type=range]{padding:0;border:0;accent-color:var(--accent)}
   <h1>Status Compressor <small id="ver"></small></h1>
   <button id="install" class="sec" hidden>Install app (works offline)</button>
   <div class="row">
-    <input id="tt" type="url" inputmode="url" placeholder="Paste a TikTok link" aria-label="TikTok link">
+    <input id="tt" type="url" inputmode="url" placeholder="Paste a link: TikTok, Instagram, Facebook, YouTube..." aria-label="Link to a video or photo post">
     <button id="paste" class="sec" type="button">Paste</button>
   </div>
-  <button id="ttgo">Get video without watermark</button>
+  <button id="ttgo">Get media without watermark</button>
+  <details id="srv">
+    <summary>Download server (advanced)</summary>
+    <p>TikTok works out of the box. Instagram, Facebook, YouTube and the rest go through a Cobalt server. Paste the address of one you can use. Add an API key only if that server asks for one.</p>
+    <input id="srvurl" type="url" inputmode="url" placeholder="https://your-cobalt-server.example/" aria-label="Cobalt server address" autocomplete="off">
+    <input id="srvkey" type="password" placeholder="API key (optional)" aria-label="API key" autocomplete="off">
+  </details>
   <div id="ttmsg" role="status"></div>
-  <a id="ttopen" class="go" href="#" target="_blank" rel="noopener" hidden>Open video to save it</a>
+  <progress id="dlbar" max="1" value="0" hidden></progress>
   <div id="ready" class="part" hidden>
-    <video id="rv" controls playsinline></video>
-    <p>Video ready, no watermark. Want to use the HD feature to get it ready for WhatsApp Status?</p>
-    <a id="rsave" class="go">Save to phone</a>
-    <button id="ryes">Yes, prepare for Status (HD)</button>
+    <div id="items"></div>
   </div>
   <p class="or">Or pick a video from your phone</p>
   <input id="file" type="file" accept="video/*" aria-label="Video">
@@ -113,7 +122,7 @@ const MEDIABUNNY = CDN + 'mediabunny@1.61.3/dist/bundles/mediabunny.min.mjs';
 const FAST_MAX_MB = 2048;   // fast mode reads the file in slices, so big files are fine
 const SLOW_MAX_MB = 300;    // the standard converter holds the whole file in memory
 const STALL_MS = 60000;     // fast mode gives up if the encoder shows no progress for this long
-const APP_VERSION = 7;
+const APP_VERSION = 8;
 $('ver').textContent = 'V' + APP_VERSION;
 
 // ---------- Offline install (service worker) and update check ----------
@@ -389,13 +398,13 @@ function addShareAll() {
 let busy = false;
 function setBusy(on) {
   busy = on;
-  $('go').disabled = on; $('ryes').disabled = on;
+  $('go').disabled = on;
+  document.querySelectorAll('.hdbtn').forEach(b => { b.disabled = on; });
   $('cancel').hidden = !on; $('bar').hidden = !on;
   if (on) $('bar').value = 0;
 }
 
 $('go').onclick = () => compress($('file').files[0]);
-$('ryes').onclick = () => compress(tiktokFile);
 $('cancel').onclick = () => {
   if (!busy) return;
   cancelled = true;
@@ -458,11 +467,26 @@ async function compress(file) {
   }
 }
 
-// ---------- TikTok link -> video without watermark ----------
-// Unofficial third-party service. If it stops working, change this address.
+// ---------- Link -> media without watermark (video, photos, slideshows) ----------
+// Unofficial third-party services. If one stops working, change its address.
+// TikTok: tikwm.com. Everything else (Instagram, Facebook, YouTube, X, Reddit, Pinterest, Snapchat...): a Cobalt server.
 const TIKTOK_API = 'https://www.tikwm.com/api/';
-let tiktokFile, readyURL;
+const COBALT_DEFAULTS = ['https://api.cobalt.tools/']; // tried after the server you set in "Download server"
+const DL_MAX_MB = 400;      // bigger downloads are not held in memory: the app offers an Open link instead
+const DL_PARALLEL = 3;
+let resultURLs = [];
 const ttSay = (t, err) => { $('ttmsg').textContent = t; $('ttmsg').className = err ? 'err' : ''; };
+
+// Remembered download server
+const loadSrv = () => { try { return JSON.parse(localStorage.getItem('sc_srv')) || {}; } catch { return {}; } };
+(() => {
+  const s = loadSrv();
+  if (s.url) $('srvurl').value = s.url;
+  if (s.key) $('srvkey').value = s.key;
+  const save = () => { try { localStorage.setItem('sc_srv', JSON.stringify({ url: $('srvurl').value.trim(), key: $('srvkey').value.trim() })); } catch {} };
+  $('srvurl').addEventListener('change', save);
+  $('srvkey').addEventListener('change', save);
+})();
 
 // Paste button: reads the clipboard and drops the link into the box.
 if (!navigator.clipboard?.readText) $('paste').hidden = true;
@@ -471,55 +495,523 @@ $('paste').onclick = async () => {
     const link = (await navigator.clipboard.readText()).match(/https?:\/\/\S+/)?.[0];
     if (!link) return ttSay('No link found on the clipboard.', true);
     $('tt').value = link;
-    ttSay('Link pasted. Tap Get video without watermark.');
+    ttSay('Link pasted. Tap Get media without watermark.');
   } catch {
     ttSay('Could not read the clipboard. Press and hold in the box and paste instead.', true);
   }
 };
 
-// Share target: when installed, "Share > Status Compressor" from TikTok fills the box.
+// Share target: when installed, "Share > Status Compressor" from any app fills the box.
 (() => {
   const p = new URLSearchParams(location.search);
   const link = [p.get('url'), p.get('text'), p.get('title')].join(' ').match(/https?:\/\/\S+/)?.[0];
   if (!link) return;
   $('tt').value = link;
-  ttSay('Link received. Tap Get video without watermark.');
+  ttSay('Link received. Tap Get media without watermark.');
   history.replaceState(null, '', location.pathname);
 })();
 
+const isTikTok = l => /^https?:\/\/([^/]*\.)?tiktok\.com\//i.test(l);
+const absURL = (u, base) => new URL(u, base).href;
+
+// A problem with the link itself (private post, unsupported site): trying another server will not help.
+class LinkError extends Error {}
+// Cobalt error codes look like "error.api.content.post.private". Matched by their ending.
+const COBALT_ERRORS = [
+  ['post.private', 'That post is private.'],
+  ['post.age', 'That post is age-restricted, so it cannot be fetched.'],
+  ['post.unavailable', 'That post is not available. It may have been deleted.'],
+  ['video.unavailable', 'That video is not available.'],
+  ['video.live', 'Live streams cannot be downloaded.'],
+  ['video.too_long', 'That video is too long for the server.'],
+  ['link.unsupported', 'That site or link type is not supported.'],
+  ['link.invalid', 'That does not look like a valid link.'],
+  ['fetch.empty', 'Nothing to download was found at that link.'],
+];
+
+async function viaTikTok(link) {
+  const r = await fetch(TIKTOK_API, { method: 'POST', body: new URLSearchParams({ url: link, hd: '1' }) });
+  const j = await r.json();
+  if (j.code !== 0 || !j.data) throw new LinkError(j.msg || 'No media found for that link.');
+  const d = j.data;
+  if (d.images?.length) {
+    const list = d.images.map((u, i) => ({ type: 'photo', url: absURL(u, TIKTOK_API), name: `tiktok-photo-${i + 1}.jpg` }));
+    const m = d.music || d.music_info?.play;
+    if (m) list.music = absURL(m, TIKTOK_API);
+    return list;
+  }
+  const u = d.hdplay || d.play;
+  if (!u) throw new LinkError('No media found for that link.');
+  return [{ type: 'video', url: absURL(u, TIKTOK_API), name: 'tiktok.mp4' }];
+}
+
+async function viaCobalt(server, key, link) {
+  const headers = { Accept: 'application/json', 'Content-Type': 'application/json' };
+  if (key) headers.Authorization = 'Api-Key ' + key;
+  const r = await fetch(server, { method: 'POST', headers, body: JSON.stringify({ url: link, videoQuality: '1080', filenameStyle: 'basic' }) });
+  let j;
+  try { j = await r.json(); } catch { throw new Error('the server gave an unreadable reply'); }
+  if (j.status === 'error') {
+    const code = String(j.error?.code || j.error || '');
+    const hit = COBALT_ERRORS.find(([k]) => code.endsWith(k));
+    if (hit) throw new LinkError(hit[1]);
+    if (/auth|jwt|api[_.]?key/i.test(code)) throw new Error('the server needs an API key');
+    if (/rate/i.test(code)) throw new Error('the server is busy, try again in a minute');
+    throw new Error(code.replace(/^error\.api\./, '') || 'the server could not fetch it');
+  }
+  if (j.status === 'tunnel' || j.status === 'redirect') {
+    const name = j.filename || 'download';
+    const photo = /\.(jpe?g|png|webp|gif|heic|avif)$/i.test(name) && !/\.gif$/i.test(name);
+    return [{ type: photo ? 'photo' : 'video', url: absURL(j.url, server), name }];
+  }
+  if (j.status === 'picker' && Array.isArray(j.picker) && j.picker.length) {
+    const list = j.picker.filter(p => p?.url).map((p, i) => {
+      const photo = p.type === 'photo';
+      return { type: photo ? 'photo' : 'video', url: absURL(p.url, server), name: `${photo ? 'photo' : 'video'}-${i + 1}.${photo ? 'jpg' : 'mp4'}` };
+    });
+    if (j.audio) list.music = absURL(j.audio, server);
+    return list;
+  }
+  throw new Error('the server gave a reply this app cannot use');
+}
+
+// Returns the list of media files (video or photo) found behind a link.
+async function resolveLink(link) {
+  let lastErr = null, tried = 0;
+  if (isTikTok(link)) {
+    tried++;
+    try { return await viaTikTok(link); }
+    catch (e) { lastErr = e; }
+  }
+  const s = loadSrv();
+  const servers = [...new Set([s.url, ...COBALT_DEFAULTS].filter(Boolean).map(u => u.replace(/\/?$/, '/')))];
+  for (const srv of servers) {
+    tried++;
+    try { return await viaCobalt(srv, srv === (s.url || '').replace(/\/?$/, '/') ? s.key : '', link); }
+    catch (e) {
+      if (e instanceof LinkError) throw e;
+      // Keep the most useful complaint: a server's own message beats a plain network failure.
+      if (!lastErr || lastErr instanceof TypeError) lastErr = e;
+    }
+  }
+  if (lastErr instanceof TypeError || !lastErr) {
+    throw new Error('Could not reach a download server from this page. Check your connection, or add a working server under Download server (advanced).');
+  }
+  if (lastErr instanceof LinkError) throw lastErr;
+  throw new Error(`The download server said: ${lastErr.message}. Try again later, or set another server under Download server (advanced).`);
+}
+
+const extFor = (mime, type) => ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/avif': 'avif', 'image/heic': 'heic', 'video/webm': 'webm', 'video/quicktime': 'mov' }[mime] || (type === 'photo' ? 'jpg' : 'mp4'));
+
+// Downloads one item into a File, with progress. Throws if it is too big or the browser blocks it.
+async function downloadItem(it, onProg) {
+  const res = await fetch(it.url);
+  if (!res.ok) throw new Error('Download failed.');
+  const len = Number(res.headers.get('content-length')) || 0;
+  if (len > DL_MAX_MB * 1048576) throw new Error('too big');
+  let blob;
+  if (res.body?.getReader) {
+    const rd = res.body.getReader(), chunks = []; let got = 0;
+    for (;;) {
+      const { done, value } = await rd.read();
+      if (done) break;
+      chunks.push(value); got += value.length;
+      if (got > DL_MAX_MB * 1048576) { try { rd.cancel(); } catch {} throw new Error('too big'); }
+      if (len) onProg(got / len);
+    }
+    blob = new Blob(chunks);
+  } else blob = await res.blob();
+  let mime = (res.headers.get('content-type') || blob.type || '').split(';')[0].trim().toLowerCase();
+  const want = it.type === 'photo' ? 'image/' : 'video/';
+  if (!mime.startsWith(want)) mime = it.type === 'photo' ? 'image/jpeg' : 'video/mp4';
+  const base = it.name.replace(/\.[^.]+$/, '') || (it.type === 'photo' ? 'photo' : 'video');
+  return new File([blob], `${base}.${extFor(mime, it.type)}`, { type: mime });
+}
+
+function clearResults() {
+  resultURLs.forEach(u => URL.revokeObjectURL(u));
+  resultURLs = [];
+  $('items').innerHTML = '';
+  $('ready').hidden = true;
+}
+
+function makeCard(it) {
+  const d = document.createElement('div');
+  d.className = 'part';
+  const info = document.createElement('p');
+  info.textContent = 'Waiting...';
+  d.append(info);
+  $('items').append(d);
+  return { d, info };
+}
+
+function fillCard(card, it, file, total) {
+  const url = URL.createObjectURL(file);
+  resultURLs.push(url);
+  const el = document.createElement(it.type === 'photo' ? 'img' : 'video');
+  el.src = url;
+  if (it.type === 'photo') el.alt = file.name; else { el.controls = true; el.playsInline = true; }
+  card.d.replaceChildren(el);
+  const p = document.createElement('p');
+  p.textContent = `${file.name}, ${(file.size / 1048576).toFixed(1)} MB`;
+  card.d.append(p);
+  const save = document.createElement('a');
+  save.className = 'go'; save.href = url; save.download = file.name; save.textContent = 'Save to phone';
+  card.d.append(save);
+  if (navigator.canShare?.({ files: [file] })) {
+    const b = document.createElement('button');
+    b.className = 'sec'; b.textContent = 'Share';
+    b.onclick = () => navigator.share({ files: [file] }).catch(() => {});
+    card.d.append(b);
+  }
+  if (it.type === 'video') {
+    const h = document.createElement('button');
+    h.className = 'hdbtn'; h.textContent = 'Prepare for Status (HD)';
+    h.onclick = () => compress(file);
+    card.d.append(h);
+  }
+  save.dataset.save = '1';
+}
+
+function failCard(card, it, why) {
+  const p = document.createElement('p');
+  p.className = 'err';
+  p.textContent = why === 'too big'
+    ? 'This file is too big to hold in the browser. Tap Open, then press and hold to save it.'
+    : 'Your browser blocked the direct download. Tap Open, then press and hold to save it.';
+  const a = document.createElement('a');
+  a.className = 'go'; a.href = it.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Open to save it';
+  card.d.replaceChildren(p, a);
+}
+
+// ---------- Slideshow video (photos + music -> one MP4, like the TikTok slideshow) ----------
+const SW = 720, SH = 1280, SFPS = 30, XFADE = 0.4, ZOOM = 0.06;
+
+// One finished slide: blurred background plus the photo fitted inside, drawn once and reused for every frame.
+async function prepSlide(file) {
+  const bmp = await createImageBitmap(file);
+  const oc = document.createElement('canvas');
+  oc.width = SW; oc.height = SH;
+  const c = oc.getContext('2d');
+  c.fillStyle = '#000'; c.fillRect(0, 0, SW, SH);
+  const cover = Math.max(SW / bmp.width, SH / bmp.height), fit = Math.min(SW / bmp.width, SH / bmp.height);
+  if (fit < cover * 0.98) { // the photo does not fill the frame: blur a copy behind it
+    try { c.filter = 'blur(24px)'; } catch {}
+    c.drawImage(bmp, (SW - bmp.width * cover) / 2, (SH - bmp.height * cover) / 2, bmp.width * cover, bmp.height * cover);
+    c.filter = 'none';
+  }
+  const k = fit < cover * 0.98 ? fit : cover;
+  c.drawImage(bmp, (SW - bmp.width * k) / 2, (SH - bmp.height * k) / 2, bmp.width * k, bmp.height * k);
+  bmp.close?.();
+  return oc;
+}
+
+// Draws the frame at time t: slow zoom on each photo and a short crossfade between photos.
+function drawFrame(ctx, slides, sec, t) {
+  const n = slides.length, i = Math.min(n - 1, Math.floor(t / sec)), local = t - i * sec;
+  const put = (s, z, a) => {
+    ctx.globalAlpha = a;
+    ctx.drawImage(s, SW * (1 - z) / 2, SH * (1 - z) / 2, SW * z, SH * z);
+  };
+  ctx.globalAlpha = 1; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, SW, SH);
+  if (i > 0 && local < XFADE) put(slides[i - 1], 1 + ZOOM, 1);
+  put(slides[i], 1 + ZOOM * Math.min(1, local / sec), i > 0 ? Math.min(1, local / XFADE) : 1);
+  ctx.globalAlpha = 1;
+}
+
+// Downloads and decodes the music, cut to the length of the video. Returns null if it cannot.
+async function loadMusic(url, total) {
+  if (!url) return null;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const bytes = await res.arrayBuffer();
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ac = new AC();
+    try {
+      const buf = await ac.decodeAudioData(bytes.slice(0));
+      const len = Math.min(buf.length, Math.round(total * buf.sampleRate));
+      const out = ac.createBuffer(buf.numberOfChannels, len, buf.sampleRate);
+      for (let ch = 0; ch < buf.numberOfChannels; ch++) out.copyToChannel(buf.getChannelData(ch).subarray(0, len), ch);
+      return { buffer: out, bytes };
+    } finally { ac.close?.(); }
+  } catch { return null; }
+}
+
+// One photo on its own: the same slow zoom, no fade.
+function drawClip(ctx, slide, sec, t) {
+  const z = 1 + ZOOM * Math.min(1, t / sec);
+  ctx.globalAlpha = 1; ctx.fillStyle = '#000'; ctx.fillRect(0, 0, SW, SH);
+  ctx.drawImage(slide, SW * (1 - z) / 2, SH * (1 - z) / 2, SW * z, SH * z);
+}
+
+// The part of the music that belongs to one clip (start and length in seconds).
+function sliceMusic(music, start, len) {
+  if (!music) return null;
+  const b = music.buffer, sr = b.sampleRate;
+  const from = Math.min(b.length, Math.round(start * sr)), n = Math.min(b.length - from, Math.round(len * sr));
+  if (n < sr / 2) return null; // less than half a second of music left: leave that clip silent
+  const out = new AudioBuffer({ length: n, numberOfChannels: b.numberOfChannels, sampleRate: sr });
+  for (let ch = 0; ch < b.numberOfChannels; ch++) out.copyToChannel(b.getChannelData(ch).subarray(from, from + n), ch);
+  return { buffer: out, bytes: music.bytes, offset: start };
+}
+
+// Fast path: draw frames on a canvas and encode them with the phone's chip (Mediabunny).
+// draw(ctx, t) paints the picture at time t seconds.
+async function slideshowFast(draw, total, music, onProg) {
+  const MB = await getMB();
+  const frames = Math.round(total * SFPS);
+  const canvas = document.createElement('canvas');
+  canvas.width = SW; canvas.height = SH;
+  const ctx = canvas.getContext('2d');
+  const output = new MB.Output({ format: new MB.Mp4OutputFormat(), target: new MB.BufferTarget() });
+  // Newer Mediabunny takes `quality`, older takes `bitrate`: try both.
+  const enc = (codec, bitrate) => {
+    const tries = [];
+    if (MB.Quality) tries.push(() => ({ codec, quality: new MB.Quality({ bitrate }) }));
+    tries.push(() => ({ codec, bitrate }));
+    return tries;
+  };
+  const make = (Src, arg, codec, bitrate) => {
+    let last;
+    for (const t of enc(codec, bitrate)) { try { return arg ? new Src(arg, t()) : new Src(t()); } catch (e) { last = e; } }
+    throw last;
+  };
+  const vs = make(MB.CanvasSource, canvas, 'avc', 3_000_000);
+  output.addVideoTrack(vs, { frameRate: SFPS });
+  let as = null;
+  if (music) { as = make(MB.AudioBufferSource, null, 'aac', 128_000); output.addAudioTrack(as); }
+  await output.start();
+  // Audio is handed over without waiting, so it never blocks the picture track.
+  const audioDone = as ? as.add(music.buffer).then(() => as.close?.()) : Promise.resolve();
+  audioDone.catch(() => {});
+  for (let f = 0; f < frames; f++) {
+    if (f % 10 === 0) onProg(f / frames);
+    draw(ctx, f / SFPS);
+    await vs.add(f / SFPS, 1 / SFPS);
+  }
+  vs.close?.();
+  await audioDone;
+  await output.finalize();
+  const buf = output.target.buffer;
+  if (!buf || buf.byteLength < 2048) throw new Error('the encoder produced an empty file');
+  return new Blob([buf], { type: 'video/mp4' });
+}
+
+// Standard path: the photos are written as pictures and joined by ffmpeg (no zoom or fades, but works anywhere).
+async function slideshowSlow(slides, sec, music, onProg) {
+  const f = await load();
+  const total = slides.length * sec;
+  let list = '';
+  for (let i = 0; i < slides.length; i++) {
+    const jpg = await new Promise(r => slides[i].toBlob(r, 'image/jpeg', 0.92));
+    await f.writeFile(`p${i}.jpg`, new Uint8Array(await jpg.arrayBuffer()));
+    list += `file 'p${i}.jpg'\nduration ${sec}\n`;
+  }
+  list += `file 'p${slides.length - 1}.jpg'\n`;
+  await f.writeFile('list.txt', new TextEncoder().encode(list));
+  if (music) await f.writeFile('music', new Uint8Array(music.bytes));
+  const handler = ({ progress }) => onProg(Math.min(1, Math.max(0, progress)));
+  f.on('progress', handler);
+  const code = await f.exec([
+    '-y', '-f', 'concat', '-safe', '0', '-i', 'list.txt', ...(music ? ['-ss', String(music.offset || 0), '-i', 'music'] : []),
+    '-vf', `scale=${SW}:${SH},format=yuv420p,fps=${SFPS}`, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23',
+    ...(music ? ['-c:a', 'aac', '-b:a', '128k', '-af', 'apad'] : []),
+    '-t', String(total), '-movflags', '+faststart', 'slideshow.mp4',
+  ]);
+  f.off('progress', handler);
+  if (code !== 0) throw new Error('Conversion failed.');
+  const data = await f.readFile('slideshow.mp4');
+  for (let i = 0; i < slides.length; i++) { try { await f.deleteFile(`p${i}.jpg`); } catch {} }
+  try { await f.deleteFile('slideshow.mp4'); } catch {}
+  return new Blob([data], { type: 'video/mp4' });
+}
+
+// Builds one video: tries the phone's chip first, then the standard converter.
+async function buildVideo(fastDraw, slides, sec, total, music, onProg) {
+  try {
+    if (!fastAvailable) throw new Error('no fast mode');
+    return { blob: await slideshowFast(fastDraw, total, music, onProg), how: 'fast mode' };
+  } catch (e) {
+    return { blob: await slideshowSlow(slides, sec, music, onProg), how: 'standard mode' };
+  }
+}
+
+let slideBusy = false, slideCard = null, clipBox = null;
+
+// Shared wrapper: busy flag, screen lock, progress bar, error message.
+async function runBuild(btns, job) {
+  if (slideBusy) return;
+  slideBusy = true; btns.forEach(b => { b.disabled = true; }); cancelled = false;
+  $('dlbar').hidden = false; $('dlbar').value = 0;
+  let lock; try { lock = await navigator.wakeLock?.request('screen'); } catch {}
+  try { await job(); }
+  catch (e) { ttSay('Could not build the video' + (e?.message ? `: ${e.message}` : '.') + ' You can still save the photos below.', true); }
+  finally {
+    killFF();
+    $('dlbar').hidden = true; btns.forEach(b => { b.disabled = false; }); slideBusy = false;
+    lock?.release?.();
+  }
+}
+
+async function prepAll(photoFiles, musicUrl, sec, wantMusic) {
+  ttSay('Preparing the photos...');
+  const slides = [];
+  for (const f of photoFiles) slides.push(await prepSlide(f));
+  const total = slides.length * sec;
+  let music = null, note = '';
+  if (wantMusic && musicUrl) {
+    ttSay('Getting the music...');
+    music = await loadMusic(musicUrl, total);
+    if (!music) note = ' The music could not be fetched, so there is no sound.';
+  }
+  return { slides, total, music, note };
+}
+
+function makeSlideshow(photoFiles, musicUrl, sec, wantMusic, btns) {
+  return runBuild(btns, async () => {
+    const { slides, total, music, note } = await prepAll(photoFiles, musicUrl, sec, wantMusic);
+    ttSay('Building the slideshow video. Keep this tab open.');
+    const { blob, how } = await buildVideo((c, t) => drawFrame(c, slides, sec, t), slides, sec, total, music, p => { $('dlbar').value = p * 0.95; });
+    const file = new File([blob], `slideshow-${Date.now()}.mp4`, { type: 'video/mp4' });
+    slideCard?.d.remove();
+    const card = makeCard({ type: 'video' });
+    $('items').prepend(card.d);
+    fillCard(card, { type: 'video', name: file.name }, file, 1);
+    slideCard = card;
+    card.d.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    ttSay(`Slideshow video ready (${how}).${note} Tap Prepare for Status (HD) to compress it, or save it.`);
+  });
+}
+
+// One animated clip per photo, each with its own slice of the music.
+function makeClips(photoFiles, musicUrl, sec, wantMusic, btns) {
+  return runBuild(btns, async () => {
+    const { slides, music, note } = await prepAll(photoFiles, musicUrl, sec, wantMusic);
+    if (clipBox) { clipBox.remove(); }
+    const box = document.createElement('div');
+    box.className = 'part';
+    const head = document.createElement('p');
+    head.textContent = 'Animated clips, one per photo';
+    box.append(head);
+    const list = document.createElement('div');
+    box.append(list);
+    $('items').prepend(box);
+    clipBox = box;
+    const made = [];
+    let how = 'fast mode';
+    for (let i = 0; i < slides.length; i++) {
+      ttSay(`Building clip ${i + 1} of ${slides.length}. Keep this tab open.`);
+      const m = sliceMusic(music, i * sec, sec);
+      const r = await buildVideo((c, t) => drawClip(c, slides[i], sec, t), [slides[i]], sec, sec, m, p => { $('dlbar').value = (i + p) / slides.length * 0.97; });
+      if (r.how !== 'fast mode') how = r.how;
+      const file = new File([r.blob], `clip-${i + 1}.mp4`, { type: 'video/mp4' });
+      const card = makeCard({ type: 'video' });
+      list.append(card.d);
+      fillCard(card, { type: 'video', name: file.name }, file, 1);
+      made.push(file);
+    }
+    const bar = document.createElement('div');
+    if (made.length > 1 && navigator.canShare?.({ files: made })) {
+      const sh = document.createElement('button');
+      sh.textContent = `Share all ${made.length} clips to WhatsApp`;
+      sh.onclick = () => navigator.share({ files: made }).catch(() => {});
+      bar.append(sh);
+    }
+    const sa = document.createElement('button');
+    sa.className = 'sec'; sa.textContent = `Save all ${made.length} clips`;
+    sa.onclick = async () => { for (const a of list.querySelectorAll('a[data-save]')) { a.click(); await new Promise(r => setTimeout(r, 500)); } };
+    bar.append(sa);
+    box.insertBefore(bar, list);
+    box.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    ttSay(`${made.length} animated clips ready (${how}).${note}`);
+  });
+}
+
+function slideshowBar(photoFiles, musicUrl) {
+  const d = document.createElement('div');
+  d.className = 'part';
+  d.innerHTML = '<p>Want it as an animated video, like on TikTok?</p><label for="slsec">Seconds per photo</label>' +
+    '<select id="slsec"><option>2</option><option selected>3</option><option>4</option><option>5</option></select>';
+  let chk;
+  if (musicUrl) {
+    const l = document.createElement('label');
+    l.className = 'check'; l.innerHTML = '<input id="slmusic" type="checkbox" checked> Add the original music';
+    d.append(l); chk = l.firstChild;
+  }
+  const b1 = document.createElement('button'), b2 = document.createElement('button');
+  b1.id = 'slgo'; b1.textContent = 'Make one slideshow video';
+  b2.id = 'clipgo'; b2.className = 'sec'; b2.textContent = 'Make each photo an animated clip';
+  const args = () => [photoFiles, musicUrl, Number(d.querySelector('#slsec').value), !!chk?.checked, [b1, b2]];
+  b1.onclick = () => makeSlideshow(...args());
+  b2.onclick = () => makeClips(...args());
+  d.append(b1, b2);
+  return d;
+}
+
 $('ttgo').onclick = async () => {
   const link = $('tt').value.match(/https?:\/\/\S+/)?.[0];
-  if (!link || !/tiktok\.com/i.test(link)) return ttSay('Paste a TikTok link first.', true);
-  $('ttgo').disabled = true; $('ready').hidden = true; $('ttopen').hidden = true;
-  let videoUrl;
+  if (!link) return ttSay('Paste a link first (TikTok, Instagram, Facebook, YouTube...).', true);
+  $('ttgo').disabled = true; clearResults();
+  let items;
   try {
-    ttSay('Finding the video...');
-    const r = await fetch(TIKTOK_API, { method: 'POST', body: new URLSearchParams({ url: link, hd: '1' }) });
-    const j = await r.json();
-    if (j.code !== 0 || !j.data) throw new Error(j.msg || 'No video found for that link.');
-    if (j.data.images?.length) throw new Error('That link is a photo slideshow, not a video.');
-    videoUrl = new URL(j.data.hdplay || j.data.play, 'https://www.tikwm.com/').href;
+    ttSay('Finding the media...');
+    items = await resolveLink(link);
   } catch (e) {
-    ttSay(e instanceof TypeError ? 'Could not reach the TikTok service from this page. Check your connection or try again later.' : e.message, true);
+    ttSay(e.message, true);
     $('ttgo').disabled = false;
     return;
   }
-  try {
-    ttSay('Downloading...');
-    const res = await fetch(videoUrl);
-    if (!res.ok) throw new Error('Download failed.');
-    tiktokFile = new File([await res.blob()], 'tiktok.mp4', { type: 'video/mp4' });
-    if (readyURL) URL.revokeObjectURL(readyURL);
-    readyURL = URL.createObjectURL(tiktokFile);
-    $('rv').src = readyURL;
-    $('rsave').href = readyURL;
-    $('rsave').download = `tiktok-${Date.now()}.mp4`;
-    $('ready').hidden = false;
-    ttSay('');
-  } catch {
-    $('ttopen').href = videoUrl; $('ttopen').hidden = false;
-    ttSay('Your browser blocked the direct download. Tap Open video, press and hold to save it, then pick the saved file below.', true);
+  $('ready').hidden = false;
+  const cards = items.map(makeCard);
+  const files = new Array(items.length).fill(null);
+  let next = 0, done = 0, failed = 0;
+  const total = items.length;
+  $('dlbar').hidden = false; $('dlbar').value = 0;
+  const bump = () => ttSay(`Downloading ${Math.min(done + 1, total)} of ${total}...`);
+  bump();
+  const worker = async () => {
+    while (next < total) {
+      const i = next++;
+      cards[i].info.textContent = 'Downloading...';
+      try {
+        files[i] = await downloadItem(items[i], f => { if (total === 1) $('dlbar').value = f; });
+        fillCard(cards[i], items[i], files[i], total);
+      } catch (e) {
+        failed++; failCard(cards[i], items[i], e.message);
+      }
+      done++;
+      if (total > 1) $('dlbar').value = done / total;
+      bump();
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(DL_PARALLEL, total) }, worker));
+  $('dlbar').hidden = true;
+
+  const got = files.filter(Boolean);
+  if (got.length > 1) {
+    const bar = document.createElement('div');
+    if (navigator.canShare?.({ files: got })) {
+      const b = document.createElement('button');
+      b.textContent = `Share all ${got.length} to WhatsApp`;
+      b.onclick = () => navigator.share({ files: got }).catch(() => {});
+      bar.append(b);
+    }
+    const sa = document.createElement('button');
+    sa.className = 'sec'; sa.textContent = `Save all ${got.length}`;
+    sa.onclick = async () => {
+      for (const a of document.querySelectorAll('#items a[data-save]')) { a.click(); await new Promise(r => setTimeout(r, 500)); }
+    };
+    bar.append(sa);
+    $('ready').prepend(bar);
   }
+  const photoFiles = files.filter((f, i) => f && items[i].type === 'photo');
+  if (photoFiles.length >= 2) $('ready').prepend(slideshowBar(photoFiles, items.music));
+  const kind = items.every(x => x.type === 'photo') ? (total > 1 ? 'photos' : 'photo') : items.every(x => x.type === 'video') ? (total > 1 ? 'videos' : 'video') : 'items';
+  if (!got.length) ttSay('Found it, but the browser blocked the downloads. Use the Open buttons below.', true);
+  else if (failed) ttSay(`${got.length} of ${total} ${kind} ready, no watermark. ${failed} could not be downloaded here, use the Open button${failed > 1 ? 's' : ''}.`);
+  else if (photoFiles.length >= 2) ttSay(`${got.length} photos ready, no watermark.${failed ? ` ${failed} could not be downloaded here, use the Open button${failed > 1 ? 's' : ''}.` : ''} Tap Make one slideshow video, or Make each photo an animated clip, for the animated version.`);
+  else ttSay(items.some(x => x.type === 'video') ? `Ready, no watermark. Want to use the HD feature to get a video ready for WhatsApp Status?` : `${total} ${kind} ready, no watermark.`);
   $('ttgo').disabled = false;
 };
 </script>

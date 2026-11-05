@@ -1,7 +1,7 @@
 {
   "name": "Status Compressor",
   "short_name": "Compressor",
-  "description": "Shrink videos for WhatsApp Status.",
+  "description": "Shrink videos for WhatsApp Status and grab media without watermarks.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
