@@ -1,10 +1,14 @@
 <!doctype html>
-<!-- Status Compressor V2 -->
+<!-- Status Compressor V5 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#25d366">
 <title>Status Compressor</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
 :root{--bg:#0e1512;--panel:#16201b;--text:#e8efe9;--muted:#8fa196;--accent:#25d366;--err:#ff7a7a}
 @media (prefers-color-scheme:light){:root{--bg:#f1f5f2;--panel:#fff;--text:#14201a;--muted:#5d6f64;--err:#c62828}}
@@ -19,6 +23,7 @@ select option{color:#000}
 .check{display:flex;gap:10px;align-items:center;margin-top:12px}
 .check input{width:auto;margin:0}
 button,.go{background:var(--accent);border:0;color:#04140a;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}
+button.sec{background:transparent;color:var(--text);border:1px solid var(--muted)}
 button:disabled{opacity:.5}
 :focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 progress{width:100%;margin-top:14px}
@@ -29,13 +34,33 @@ video{width:100%;max-height:340px;border-radius:10px;background:#000}
 small{font-size:.8rem;font-weight:400;color:var(--muted)}
 .upd{background:var(--accent);color:#04140a;border-radius:10px;padding:10px 12px;margin-bottom:14px}
 .upd button{background:#04140a;color:#fff;margin-top:8px}
+.or{margin:20px 0 0;text-align:center}
+#ttmsg{margin-top:10px;white-space:pre-line}
+.row{display:flex;gap:8px;align-items:stretch}
+.row input{flex:1;min-width:0}
+.row button{width:auto;padding:12px 16px}
+#note{margin:8px 0 0;font-size:.85rem;color:var(--muted)}
 </style>
 </head>
 <body>
 <main>
   <div id="upd" class="upd" role="status" hidden><span id="upd-text"></span><button id="upd-btn">Update now</button></div>
   <h1>Status Compressor <small id="ver"></small></h1>
-  <p>Shrinks a video so WhatsApp leaves it nearly untouched, and cuts long clips into 30-second parts. It all runs on your phone. Nothing is uploaded.</p>
+  <button id="install" class="sec" hidden>Install app (works offline)</button>
+  <div class="row">
+    <input id="tt" type="url" inputmode="url" placeholder="Paste a TikTok link" aria-label="TikTok link">
+    <button id="paste" class="sec" type="button">Paste</button>
+  </div>
+  <button id="ttgo">Get video without watermark</button>
+  <div id="ttmsg" role="status"></div>
+  <a id="ttopen" class="go" href="#" target="_blank" rel="noopener" hidden>Open video to save it</a>
+  <div id="ready" class="part" hidden>
+    <video id="rv" controls playsinline></video>
+    <p>Video ready, no watermark. Want to use the HD feature to get it ready for WhatsApp Status?</p>
+    <a id="rsave" class="go">Save to phone</a>
+    <button id="ryes">Yes, prepare for Status (HD)</button>
+  </div>
+  <p class="or">Or pick a video from your phone</p>
   <input id="file" type="file" accept="video/*" aria-label="Video">
   <select id="q" aria-label="Quality">
     <option value="1280:23:2500">Balanced (recommended)</option>
@@ -43,30 +68,44 @@ small{font-size:.8rem;font-weight:400;color:var(--muted)}
     <option value="960:27:1200">Smaller file</option>
   </select>
   <label class="check"><input id="split" type="checkbox" checked> Split into 30-second parts</label>
+  <label class="check" id="fastrow"><input id="fast" type="checkbox" checked> Fast mode (uses your phone's video chip)</label>
+  <div id="note" role="status"></div>
   <button id="go">Compress for Status</button>
+  <button id="cancel" class="sec" hidden>Cancel</button>
   <progress id="bar" max="1" value="0" hidden></progress>
   <div id="msg" role="status"></div>
   <div id="out"></div>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js" crossorigin="anonymous"></script>
 <script>
 const $ = id => document.getElementById(id);
 const say = (t, err) => { $('msg').textContent = t; $('msg').className = err ? 'err' : ''; };
 const CDN = 'https://cdn.jsdelivr.net/npm/';
-// The worker and core must be same-origin, so fetch them and serve them as blob URLs.
-// A custom worker runs as a module, so it needs the ESM build of the core.
-const blobURL = async (u, type) => URL.createObjectURL(new Blob([await (await fetch(u)).arrayBuffer()], { type }));
-let ff, logs = [];
-
-// Update check: compares this page's version with version.json on the server.
-const APP_VERSION = 2;
+const MEDIABUNNY = CDN + 'mediabunny@1.61.3/dist/bundles/mediabunny.min.mjs';
+const FAST_MAX_MB = 2048;   // fast mode reads the file in slices, so big files are fine
+const SLOW_MAX_MB = 300;    // the standard converter holds the whole file in memory
+const STALL_MS = 60000;     // fast mode gives up if the encoder shows no progress for this long
+const APP_VERSION = 5;
 $('ver').textContent = 'V' + APP_VERSION;
+
+// ---------- Offline install (service worker) and update check ----------
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+let installEvent;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvent = e; $('install').hidden = false; });
+addEventListener('appinstalled', () => { $('install').hidden = true; installEvent = null; });
+$('install').onclick = () => { $('install').hidden = true; installEvent?.prompt(); installEvent = null; };
+
+// Compares this page's version with version.json on the server.
 async function checkUpdate() {
   try {
     const j = await (await fetch('version.json?t=' + Date.now(), { cache: 'no-store' })).json();
     if (Number(j.version) > APP_VERSION) {
       $('upd-text').textContent = `Update available: V${j.version}.${j.notes ? ' ' + j.notes : ''}`;
-      $('upd-btn').onclick = () => { location.href = location.pathname + '?v=' + j.version; };
+      $('upd-btn').onclick = async () => {
+        try { await (await navigator.serviceWorker?.getRegistration())?.update(); } catch {}
+        location.reload();
+      };
       $('upd').hidden = false;
     }
   } catch {}
@@ -74,36 +113,181 @@ async function checkUpdate() {
 checkUpdate();
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkUpdate(); });
 
+// ---------- Remembered settings ----------
+const fastAvailable = typeof VideoEncoder === 'function' && typeof VideoDecoder === 'function';
+const loadPrefs = () => { try { return JSON.parse(localStorage.getItem('sc_prefs')) || {}; } catch { return {}; } };
+const savePrefs = () => {
+  try { localStorage.setItem('sc_prefs', JSON.stringify({ q: $('q').value, split: $('split').checked, fast: $('fast').checked })); } catch {}
+};
+(() => {
+  const p = loadPrefs();
+  if (p.q && [...$('q').options].some(o => o.value === p.q)) $('q').value = p.q;
+  if (typeof p.split === 'boolean') $('split').checked = p.split;
+  if (typeof p.fast === 'boolean') $('fast').checked = p.fast;
+  if (!fastAvailable) $('fastrow').hidden = true;
+  ['q', 'split', 'fast'].forEach(id => $(id).addEventListener('change', savePrefs));
+})();
+
+// ---------- Standard converter (ffmpeg in WebAssembly, works on any phone, slower) ----------
+// The worker and core must be same-origin, so fetch them and serve them as blob URLs.
+// A custom worker runs as a module, so it needs the ESM build of the core.
+// The blob URLs are created once and reused, so reloading the converter is cheap.
+const blobURL = async (u, type) => {
+  const r = await fetch(u);
+  if (!r.ok) throw new Error('download failed');
+  return URL.createObjectURL(new Blob([await r.arrayBuffer()], { type }));
+};
+let libURLs;
+const getLibURLs = () => libURLs ||= Promise.all([
+  blobURL(CDN + '@ffmpeg/ffmpeg@0.12.10/dist/umd/814.ffmpeg.js', 'text/javascript'),
+  blobURL(CDN + '@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js', 'text/javascript'),
+  blobURL(CDN + '@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm', 'application/wasm'),
+]).catch(e => { libURLs = null; throw e; });
+
+let ff = null, ffReady = false, logs = [], cancelled = false;
+
 async function load() {
-  if (ff) return ff;
+  if (ff && ffReady) return ff;
+  if (typeof FFmpegWASM === 'undefined') throw new Error('Could not load the converter. Check your connection and reload.');
   say('Loading the converter (about 30 MB, first time only)...');
   const f = new FFmpegWASM.FFmpeg();
+  ff = f; ffReady = false;
   f.on('log', ({ message }) => { logs = [...logs, message].slice(-6); });
-  await f.load({
-    classWorkerURL: await blobURL(CDN + '@ffmpeg/ffmpeg@0.12.10/dist/umd/814.ffmpeg.js', 'text/javascript'),
-    coreURL: await blobURL(CDN + '@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js', 'text/javascript'),
-    wasmURL: await blobURL(CDN + '@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm', 'application/wasm'),
-  });
-  return (ff = f);
+  try {
+    const [classWorkerURL, coreURL, wasmURL] = await getLibURLs();
+    await f.load({ classWorkerURL, coreURL, wasmURL });
+  } catch (e) {
+    if (cancelled) throw e;
+    killFF();
+    throw new Error('Could not load the converter. Check your connection and try again.');
+  }
+  if (ff !== f) throw new Error('cancelled');
+  ffReady = true;
+  return f;
+}
+
+// Stops ffmpeg and frees all its memory. The WebAssembly heap grows with the size
+// of the video and never shrinks, so the only way to give it back is to end the worker.
+function killFF() {
+  const f = ff; ff = null; ffReady = false;
+  try { f?.terminate(); } catch {}
 }
 
 const duration = file => new Promise((res, rej) => {
   const v = document.createElement('video');
+  const url = URL.createObjectURL(file);
   v.preload = 'metadata';
-  v.onloadedmetadata = () => { res(v.duration); URL.revokeObjectURL(v.src); };
-  v.onerror = () => rej(new Error('Could not read this video.'));
-  v.src = URL.createObjectURL(file);
+  v.onloadedmetadata = () => { res(v.duration); URL.revokeObjectURL(url); };
+  v.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Could not read this video.')); };
+  v.src = url;
 });
+
+// Returns the number of parts the standard converter was asked to make.
+async function slowCompress(file, side, crf, kbps, split, from) {
+  if (file.size > SLOW_MAX_MB * 1048576) throw new Error(`This file is too big for the standard method (limit about ${SLOW_MAX_MB} MB).`);
+  const dur = await duration(file);
+  const count = split ? Math.max(1, Math.ceil((dur - 0.5) / 30)) : 1;
+  const f = await load();
+  if (cancelled) throw new Error('cancelled');
+  await f.writeFile('in', new Uint8Array(await file.arrayBuffer()));
+  const vf = `scale=min(${side}\\,iw):min(${side}\\,ih):force_original_aspect_ratio=decrease:force_divisible_by=2`;
+  for (let i = from; i < count; i++) {
+    if (cancelled) throw new Error('cancelled');
+    const name = `status-${i + 1}.mp4`;
+    const onProg = ({ progress }) => { $('bar').value = Math.min(1, Math.max(0, progress)); };
+    f.on('progress', onProg);
+    $('bar').value = 0;
+    say(`Compressing part ${i + 1} of ${count}. Keep this tab open.`);
+    const code = await f.exec([
+      '-ss', String(i * 30), '-i', 'in', ...(split ? ['-t', '30'] : []),
+      '-vf', vf, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', crf,
+      '-maxrate', `${kbps}k`, '-bufsize', `${kbps * 2}k`, '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', name,
+    ]);
+    f.off('progress', onProg);
+    if (cancelled) throw new Error('cancelled');
+    if (code !== 0) throw new Error('Conversion failed.\n' + logs.join(' ').slice(-200));
+    const data = await f.readFile(name);
+    await f.deleteFile(name);
+    addPart(new Blob([data], { type: 'video/mp4' }), name);
+  }
+  return count;
+}
+
+// ---------- Fast converter (WebCodecs through Mediabunny, uses the phone's video chip) ----------
+// Loaded only when needed. Any problem at all makes the app fall back to the standard converter.
+let mbPromise, curConv = null;
+const getMB = () => mbPromise ||= import(MEDIABUNNY).catch(e => { mbPromise = null; throw e; });
+const even = n => Math.max(2, Math.round(n / 2) * 2);
+// Tracks we must not lose silently (a lost audio track would make a muted video).
+const LOST = ['unknown_source_codec', 'undecodable_source_codec', 'no_encodable_target_codec'];
+
+async function fastCompress(file, side, kbps, split) {
+  const MB = await getMB();
+  const open = () => new MB.Input({ source: new MB.BlobSource(file), formats: MB.ALL_FORMATS });
+
+  const input = open();
+  const track = await input.getPrimaryVideoTrack();
+  if (!track) throw new Error('no video track found');
+  const dur = await input.computeDuration();
+  if (!(dur > 0)) throw new Error('could not read the length');
+  const k = Math.min(1, side / track.displayWidth, side / track.displayHeight);
+  const w = even(track.displayWidth * k), h = even(track.displayHeight * k);
+  const count = split ? Math.max(1, Math.ceil((dur - 0.5) / 30)) : 1;
+
+  for (let i = partFiles.length; i < count; i++) {
+    if (cancelled) throw new Error('cancelled');
+    say(`Compressing part ${i + 1} of ${count} (fast mode). Keep this tab open.`);
+    $('bar').value = 0;
+    const output = new MB.Output({ format: new MB.Mp4OutputFormat({ fastStart: 'in-memory' }), target: new MB.BufferTarget() });
+    const conv = await MB.Conversion.init({
+      input: open(), output, showWarnings: false,
+      video: { width: w, height: h, fit: 'fill', codec: 'avc', bitrate: kbps * 1000, forceTranscode: true },
+      ...(split ? { trim: { start: i * 30, end: Math.min(dur, (i + 1) * 30) } } : {}),
+    });
+    if (!conv.isValid) throw new Error('this video format is not supported');
+    const lost = conv.discardedTracks.filter(d => LOST.includes(d.reason) && !(d.track.type === 'subtitle' || d.track.isSubtitleTrack?.()));
+    if (lost.length) throw new Error('part of this video cannot be converted this way');
+
+    let last = Date.now(), stalled = false;
+    conv.onProgress = p => { last = Date.now(); $('bar').value = Math.min(1, Math.max(0, p)); };
+    const dog = setInterval(() => {
+      if (Date.now() - last > STALL_MS) { stalled = true; conv.cancel().catch(() => {}); }
+    }, 3000);
+    curConv = conv;
+    try {
+      await conv.execute();
+    } catch (e) {
+      if (cancelled) throw e;
+      throw new Error(stalled ? 'the phone encoder stopped responding' : (e.message || 'encoder error'));
+    } finally {
+      clearInterval(dog); curConv = null;
+    }
+    const buf = output.target.buffer;
+    if (!buf || buf.byteLength < 1024) throw new Error('the encoder produced an empty file');
+    addPart(new Blob([buf], { type: 'video/mp4' }), `status-${i + 1}.mp4`);
+  }
+}
+
+// ---------- Output parts ----------
+let partURLs = [], partFiles = [];
+
+function clearParts() {
+  partURLs.forEach(u => URL.revokeObjectURL(u));
+  partURLs = []; partFiles = [];
+  $('out').innerHTML = '';
+}
 
 function addPart(blob, name) {
   const url = URL.createObjectURL(blob);
+  const file = new File([blob], name, { type: 'video/mp4' });
+  partURLs.push(url); partFiles.push(file);
   const d = document.createElement('div');
   d.className = 'part';
   d.innerHTML = `<video src="${url}" controls playsinline></video><p>${name}, ${(blob.size / 1048576).toFixed(1)} MB</p>`;
   const save = document.createElement('a');
   save.className = 'go'; save.href = url; save.download = name; save.textContent = 'Save to phone';
   d.append(save);
-  const file = new File([blob], name, { type: 'video/mp4' });
   if (navigator.canShare?.({ files: [file] })) {
     const b = document.createElement('button');
     b.textContent = 'Share to WhatsApp';
@@ -113,44 +297,146 @@ function addPart(blob, name) {
   $('out').append(d);
 }
 
-$('go').onclick = async () => {
-  const file = $('file').files[0];
+function addShareAll() {
+  if (partFiles.length < 2 || !navigator.canShare?.({ files: partFiles })) return;
+  const b = document.createElement('button');
+  b.textContent = `Share all ${partFiles.length} parts to WhatsApp`;
+  b.onclick = () => navigator.share({ files: partFiles }).catch(() => {});
+  $('out').prepend(b);
+}
+
+// ---------- Compress ----------
+let busy = false;
+function setBusy(on) {
+  busy = on;
+  $('go').disabled = on; $('ryes').disabled = on;
+  $('cancel').hidden = !on; $('bar').hidden = !on;
+  if (on) $('bar').value = 0;
+}
+
+$('go').onclick = () => compress($('file').files[0]);
+$('ryes').onclick = () => compress(tiktokFile);
+$('cancel').onclick = () => {
+  if (!busy) return;
+  cancelled = true;
+  say('Cancelling...');
+  try { curConv?.cancel().catch(() => {}); } catch {}
+  killFF();
+};
+
+async function compress(file) {
+  if (busy) return;
   if (!file) return say('Choose a video first.', true);
-  if (file.size > 400 * 1048576) return say('This file is too big to convert in the browser (limit about 400 MB).', true);
-  $('go').disabled = true; $('out').innerHTML = ''; $('bar').hidden = false; $('bar').value = 0;
+  const wantFast = fastAvailable && $('fast').checked;
+  const maxMB = wantFast ? FAST_MAX_MB : SLOW_MAX_MB;
+  if (file.size > maxMB * 1048576) {
+    return say(`This file is too big to convert here (limit about ${maxMB} MB)${!wantFast && fastAvailable ? '. Turn on Fast mode for bigger files.' : '.'}`, true);
+  }
+  cancelled = false;
+  setBusy(true); clearParts();
+  $('note').textContent = '';
+  $('bar').scrollIntoView?.({ behavior: 'smooth', block: 'center' });
   let lock;
   try { lock = await navigator.wakeLock?.request('screen'); } catch {}
   try {
     const [side, crf, kbps] = $('q').value.split(':');
     const split = $('split').checked;
-    const dur = await duration(file);
-    const count = split ? Math.max(1, Math.ceil((dur - 0.5) / 30)) : 1;
-    const f = await load();
-    await f.writeFile('in', new Uint8Array(await file.arrayBuffer()));
-    const vf = `scale=min(${side}\\,iw):min(${side}\\,ih):force_original_aspect_ratio=decrease:force_divisible_by=2`;
-    for (let i = 0; i < count; i++) {
-      const name = `status-${i + 1}.mp4`;
-      const onProg = ({ progress }) => { $('bar').value = Math.min(1, Math.max(0, progress)); };
-      f.on('progress', onProg);
-      say(`Compressing part ${i + 1} of ${count}. Keep this tab open.`);
-      const code = await f.exec([
-        '-ss', String(i * 30), '-i', 'in', ...(split ? ['-t', '30'] : []),
-        '-vf', vf, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', crf,
-        '-maxrate', `${kbps}k`, '-bufsize', `${kbps * 2}k`, '-pix_fmt', 'yuv420p',
-        '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', name,
-      ]);
-      f.off('progress', onProg);
-      if (code !== 0) throw new Error('Conversion failed.\n' + logs.join(' ').slice(-200));
-      const data = await f.readFile(name);
-      await f.deleteFile(name);
-      addPart(new Blob([data], { type: 'video/mp4' }), name);
+    let mode = 'standard';
+    let fastDone = false;
+    if (wantFast) {
+      try {
+        await fastCompress(file, Number(side), Number(kbps), split);
+        fastDone = true; mode = 'fast';
+      } catch (e) {
+        if (cancelled) throw e;
+        // Anything went wrong: turn fast mode off and carry on with the standard converter,
+        // keeping any parts that already finished.
+        $('fast').checked = false; savePrefs();
+        $('note').textContent = `Fast mode did not work on this phone (${e.message || e}), so the standard method was used. Fast mode is now off. You can turn it on again to retry.`;
+      }
     }
-    say(`Done. ${count} part${count > 1 ? 's' : ''} ready. Share each one to WhatsApp, then pick My status.`);
+    if (!fastDone) await slowCompress(file, side, crf, kbps, split, partFiles.length);
+    addShareAll();
+    const n = partFiles.length;
+    say(`Done (${mode} mode). ${n} part${n > 1 ? 's' : ''} ready. Share each one to WhatsApp, then pick My status.`);
   } catch (e) {
-    say(e.message || String(e), true);
+    if (cancelled) {
+      const n = partFiles.length;
+      say(n ? `Cancelled. ${n} finished part${n > 1 ? 's are' : ' is'} kept below.` : 'Cancelled.');
+    } else {
+      say(e.message || String(e), true);
+    }
   } finally {
-    $('go').disabled = false; $('bar').hidden = true; lock?.release?.();
+    killFF(); // free the video from memory, the converter reloads quickly next time
+    curConv = null;
+    setBusy(false);
+    lock?.release?.();
   }
+}
+
+// ---------- TikTok link -> video without watermark ----------
+// Unofficial third-party service. If it stops working, change this address.
+const TIKTOK_API = 'https://www.tikwm.com/api/';
+let tiktokFile, readyURL;
+const ttSay = (t, err) => { $('ttmsg').textContent = t; $('ttmsg').className = err ? 'err' : ''; };
+
+// Paste button: reads the clipboard and drops the link into the box.
+if (!navigator.clipboard?.readText) $('paste').hidden = true;
+$('paste').onclick = async () => {
+  try {
+    const link = (await navigator.clipboard.readText()).match(/https?:\/\/\S+/)?.[0];
+    if (!link) return ttSay('No link found on the clipboard.', true);
+    $('tt').value = link;
+    ttSay('Link pasted. Tap Get video without watermark.');
+  } catch {
+    ttSay('Could not read the clipboard. Press and hold in the box and paste instead.', true);
+  }
+};
+
+// Share target: when installed, "Share > Status Compressor" from TikTok fills the box.
+(() => {
+  const p = new URLSearchParams(location.search);
+  const link = [p.get('url'), p.get('text'), p.get('title')].join(' ').match(/https?:\/\/\S+/)?.[0];
+  if (!link) return;
+  $('tt').value = link;
+  ttSay('Link received. Tap Get video without watermark.');
+  history.replaceState(null, '', location.pathname);
+})();
+
+$('ttgo').onclick = async () => {
+  const link = $('tt').value.match(/https?:\/\/\S+/)?.[0];
+  if (!link || !/tiktok\.com/i.test(link)) return ttSay('Paste a TikTok link first.', true);
+  $('ttgo').disabled = true; $('ready').hidden = true; $('ttopen').hidden = true;
+  let videoUrl;
+  try {
+    ttSay('Finding the video...');
+    const r = await fetch(TIKTOK_API, { method: 'POST', body: new URLSearchParams({ url: link, hd: '1' }) });
+    const j = await r.json();
+    if (j.code !== 0 || !j.data) throw new Error(j.msg || 'No video found for that link.');
+    if (j.data.images?.length) throw new Error('That link is a photo slideshow, not a video.');
+    videoUrl = new URL(j.data.hdplay || j.data.play, 'https://www.tikwm.com/').href;
+  } catch (e) {
+    ttSay(e instanceof TypeError ? 'Could not reach the TikTok service from this page. Check your connection or try again later.' : e.message, true);
+    $('ttgo').disabled = false;
+    return;
+  }
+  try {
+    ttSay('Downloading...');
+    const res = await fetch(videoUrl);
+    if (!res.ok) throw new Error('Download failed.');
+    tiktokFile = new File([await res.blob()], 'tiktok.mp4', { type: 'video/mp4' });
+    if (readyURL) URL.revokeObjectURL(readyURL);
+    readyURL = URL.createObjectURL(tiktokFile);
+    $('rv').src = readyURL;
+    $('rsave').href = readyURL;
+    $('rsave').download = `tiktok-${Date.now()}.mp4`;
+    $('ready').hidden = false;
+    ttSay('');
+  } catch {
+    $('ttopen').href = videoUrl; $('ttopen').hidden = false;
+    ttSay('Your browser blocked the direct download. Tap Open video, press and hold to save it, then pick the saved file below.', true);
+  }
+  $('ttgo').disabled = false;
 };
 </script>
 </body>

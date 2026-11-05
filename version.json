@@ -1,1 +1,1 @@
-{ "version": 2, "notes": "Update prompt and converter fix." }
+{ "version": 5, "notes": "Fast mode: uses your phone's video chip, much quicker than before. Falls back automatically." }
