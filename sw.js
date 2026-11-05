@@ -1,8 +1,8 @@
-// Status Compressor V8 service worker.
+// Clean Cut V10 service worker.
 // - The app page is network-first, so updates always arrive, and falls back to the saved copy offline.
 // - The converter files are pinned versions, so they are saved once and served from the phone after that.
 // - version.json and the download services always go straight to the network.
-const SHELL = 'sc-shell-v8';
+const SHELL = 'sc-shell-v10';
 const LIBS = 'sc-libs-v1';
 const SHELL_FILES = ['index.html', 'manifest.json', 'icon-192.png', 'icon-512.png'];
 const CDN = 'https://cdn.jsdelivr.net/npm/';
