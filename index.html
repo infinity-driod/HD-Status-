@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Clean Cut V10 (was Status Compressor V8) -->
+<!-- Clean Cut V11 (was Status Compressor V8) -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -10,138 +10,150 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <style>
-:root{--bg:#14161A;--panel:#1D2026;--panel2:#262A32;--text:#F2F4F7;--muted:#9AA3AF;--accent:#2EE6A6;--coral:#FF6B5E;--err:#FF6B5E;color-scheme:dark}
+:root{--bg:#14161A;--s1:#1C1F25;--s2:#252932;--line:#2E333D;--text:#F2F4F7;--muted:#98A2B3;--accent:#2EE6A6;--coral:#FF6B5E;--err:#FF6B5E;color-scheme:dark}
 [hidden]{display:none!important}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font:16px/1.5 'Plus Jakarta Sans',Inter,system-ui,sans-serif;padding:16px 16px calc(190px + env(safe-area-inset-bottom))}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 'Plus Jakarta Sans',Inter,system-ui,sans-serif;padding:14px 16px calc(210px + env(safe-area-inset-bottom))}
 main{max-width:460px;margin:0 auto}
-.brand{display:flex;align-items:center;gap:12px;margin:6px 0 4px}
-.brand svg{width:44px;height:44px;flex:none}
-h1{font-size:1.5rem;font-weight:800;margin:0;line-height:1.1}
-.tag{color:var(--muted);margin:2px 0 0;font-size:.95rem}
 p{color:var(--muted);margin:0 0 12px}
-.badge{display:inline-block;margin:12px 0 0;padding:6px 12px;border-radius:99px;background:rgba(46,230,166,.12);color:var(--accent);font-size:.8rem;font-weight:700}
-.card{background:var(--panel);border-radius:24px;padding:18px;margin-top:14px}
-input,select,button,.go{display:block;width:100%;min-height:52px;font:inherit;border-radius:16px;padding:12px 14px;margin-top:10px;border:1.5px solid var(--panel2);background:var(--panel2);color:var(--text)}
+small{font-size:.8rem;font-weight:400;color:var(--muted)}
+.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;vertical-align:middle}
+.top{display:flex;align-items:center;gap:12px;padding:6px 0 4px}
+.top svg.logo{width:42px;height:42px;flex:none}
+h1{font-size:1.35rem;font-weight:800;margin:0;line-height:1.1}
+.tagline{margin:2px 0 0;font-size:.9rem}
+.lock{display:flex;align-items:center;gap:6px;margin:6px 0 0;color:var(--accent);font-size:.8rem;font-weight:700}.lock .ic{width:16px;height:16px}
+.tabs{display:flex;gap:4px;margin-top:14px;padding:4px;border-radius:16px;background:var(--s1);border:1px solid var(--line)}
+.tab{flex:1;margin:0;background:transparent;color:var(--muted);box-shadow:none}
+.tab.on{background:var(--s2);color:var(--text)}
+.card{background:var(--s1);border:1px solid var(--line);border-radius:20px;padding:16px;margin-top:12px}
+input,select,button,.go{display:block;width:100%;min-height:50px;font:inherit;border-radius:14px;padding:11px 14px;margin-top:10px;border:1px solid var(--line);background:var(--s2);color:var(--text)}
 select option{color:#000}
-input[type=file]{border:2px dashed var(--muted);background:transparent;padding:16px;color:var(--muted)}
-input[type=file]::file-selector-button{border:0;border-radius:12px;background:var(--accent);color:#08231A;font:inherit;font-weight:700;padding:8px 14px;margin-right:12px}
-button,.go{background:var(--accent);border:0;color:#08231A;font-weight:800;text-align:center;text-decoration:none;cursor:pointer}
-button.sec{background:var(--panel2);color:var(--text);border:0;font-weight:700}
+button,.go{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--accent);border:0;color:#07231A;font-weight:700;text-align:center;text-decoration:none;cursor:pointer}
+button.sec{background:var(--s2);color:var(--text);border:1px solid var(--line)}
 button:disabled{opacity:.45}
-button:active,.go:active{transform:scale(.98)}
+button:active,.go:active,.dlb:active{transform:scale(.98)}
 :focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:8px;align-items:stretch}
+.row input{flex:1;min-width:0;margin-top:0}
+.row button{width:auto;margin-top:0;padding:11px 16px}
+.chips{display:flex;gap:8px;overflow-x:auto;margin-top:12px;padding-bottom:2px;scrollbar-width:none}
+.chip{width:auto;min-height:38px;margin:0;padding:6px 14px;border-radius:99px;background:transparent;color:var(--muted);border:1px solid var(--line);font-size:.84rem;white-space:nowrap}
+.chip.on{background:var(--accent);color:#07231A;border-color:var(--accent)}
+.chip.on[data-p=tiktok]{background:var(--coral);border-color:var(--coral);color:#2A0C09}
+.drop{display:flex;flex-direction:column;align-items:center;gap:6px;padding:30px 14px;border:2px dashed var(--accent);border-radius:18px;text-align:center;cursor:pointer;background:rgba(46,230,166,.05)}
+.drop .ic{width:34px;height:34px;color:var(--accent)}
+.drop b{font-size:1.05rem;word-break:break-all}
+.vh{position:absolute;width:1px;height:1px;opacity:0;margin:0;min-height:0;padding:0;overflow:hidden}
+#linkcard.wipe{animation:flash .9s ease-out}
+@keyframes flash{0%{box-shadow:inset 0 0 0 2px var(--coral)}60%{box-shadow:inset 0 0 0 2px var(--accent)}100%{box-shadow:none}}
+#ttmsg{margin-top:10px;font-size:.9rem;white-space:pre-line}
+.err{color:var(--err)}
+progress,#bar,#dlbar{display:none}
+.part{margin-top:12px;background:var(--s2);border-radius:16px;padding:12px}
+#items .part:first-child{margin-top:0}
+.part p{margin:8px 0 0;font-size:.85rem}
+video{width:100%;max-height:340px;border-radius:12px;background:#000}
+#items img{width:100%;max-height:340px;object-fit:contain;border-radius:12px;background:#000}
+.lhead{display:flex;align-items:baseline;justify-content:space-between;margin:2px 0 10px}
+.lhead b{font-size:1.05rem}
+.lrow{display:flex;align-items:center;gap:12px;padding:10px;border-radius:16px;background:var(--s2);margin-top:8px}
+.thumb{position:relative;flex:none;width:64px;height:64px;min-height:0;margin:0;padding:0;border-radius:12px;overflow:hidden;background:#000}
+.thumb video{position:absolute;inset:0;width:100%;height:100%;max-height:none;object-fit:cover;border-radius:0;pointer-events:none}
+.thumb .ic{position:absolute;inset:0;margin:auto;color:#fff;fill:#fff;stroke:#fff;width:22px;height:22px}
+.meta{flex:1;min-width:0}.meta b{display:block;font-size:.95rem}
+.dlb{flex:none;width:46px;height:46px;border-radius:14px;background:var(--accent);color:#07231A;display:grid;place-items:center}
+.lbar{margin-top:12px}
+#viewer{position:fixed;inset:0;z-index:50;background:rgba(10,11,13,.97);display:flex;flex-direction:column;justify-content:center;gap:10px;padding:16px;max-width:460px;margin:0 auto}
+#viewer video{max-height:68vh}
+.upd{background:var(--accent);color:#07231A;border-radius:14px;padding:10px 14px;margin-top:12px;font-weight:700}
+.upd button{background:#07231A;color:#fff}
 .check{display:flex;gap:10px;align-items:center;margin-top:12px}
 .check input{width:auto;min-height:0;margin:0;accent-color:var(--accent)}
-.row{display:flex;gap:8px;align-items:stretch}
-.row input{flex:1;min-width:0}
-.row button{width:auto;padding:12px 18px}
-.chips{display:flex;gap:8px;overflow-x:auto;margin-top:12px;padding-bottom:2px}
-.chip{width:auto;min-height:40px;margin:0;padding:6px 14px;border-radius:99px;background:var(--panel2);color:var(--muted);font-weight:700;font-size:.85rem;white-space:nowrap}
-.chip.on{background:var(--accent);color:#08231A}
-.chip.on[data-p=tiktok]{background:var(--coral);color:#2A0C09}
-.or{margin:18px 0 0;text-align:center;font-size:.85rem}
-#linkcard{position:relative;overflow:hidden}
-#linkcard.wipe::after{content:"";position:absolute;inset:0;background:linear-gradient(100deg,transparent 30%,var(--coral) 45%,var(--accent) 55%,transparent 70%);transform:translateX(-110%);animation:wipe .9s ease-out forwards;pointer-events:none;opacity:.55}
-@keyframes wipe{to{transform:translateX(110%)}}
-#ttmsg,#msg{white-space:pre-line}
-#ttmsg{margin-top:10px;font-size:.9rem}
-#msg{margin:0;font-weight:700}
-.err{color:var(--err)}
-progress{width:100%;margin-top:14px;accent-color:var(--accent)}
-#bar{display:none}
-.part{margin-top:14px;background:var(--panel2);border-radius:18px;padding:12px}
-#items .part:first-child,#ready>.part:first-child{margin-top:0}
-.part p{margin:8px 0 0;font-size:.85rem}
-video{width:100%;max-height:340px;border-radius:14px;background:#000}
-#items img{width:100%;max-height:340px;object-fit:contain;border-radius:14px;background:#000}
-.livetile{display:flex;align-items:center;gap:10px;padding:14px;border-radius:14px;background:var(--bg);font-weight:700}
-.livetile b{color:var(--accent);font-size:1.3rem}
-small{font-size:.8rem;font-weight:400;color:var(--muted)}
-.upd{background:var(--accent);color:#08231A;border-radius:16px;padding:10px 14px;margin-bottom:12px;font-weight:700}
-.upd button{background:#08231A;color:#fff;margin-top:8px}
-#note{margin:10px 0 0;font-size:.85rem;color:var(--muted)}
+input[type=range]{padding:0;border:0;min-height:32px;background:transparent;accent-color:var(--accent)}
 #custom label,#enhpanel label:not(.check){display:block;margin-top:10px;color:var(--muted)}
 #custom b{color:var(--text)}
-input[type=range]{padding:0;border:0;min-height:32px;background:transparent;accent-color:var(--accent)}
-#est,#enhnote{margin:8px 0 0;font-size:.85rem}
+#est,#enhnote,#note{margin:8px 0 0;font-size:.85rem;color:var(--muted)}
 .dim{opacity:.5}
 details{margin-top:12px;color:var(--muted)}
-summary{cursor:pointer;font-size:.9rem}
+summary{cursor:pointer;font-size:.92rem;font-weight:600}
 details p{font-size:.85rem;margin:8px 0 0}
-.hero{font-size:2.3rem;font-weight:800;line-height:1.1;margin:0 0 12px}
-.hero i{color:var(--muted);font-style:normal;font-weight:400}
+#settings>summary{color:var(--text);font-size:1rem;margin:0}
+.or{text-align:center;font-size:.8rem;margin:18px 0 0}
+.hero{font-size:2.3rem;font-weight:800;line-height:1.1;margin:0 0 12px;color:var(--text)}
+.hero i{color:var(--muted);font-style:normal;font-weight:500;font-size:1.3rem}
 .hero b{color:var(--accent)}
 .strip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.strip div{background:var(--panel2);border-radius:14px;padding:10px 6px;text-align:center}
-.strip b{display:block;font-size:1.05rem;font-weight:800}
+.strip div{background:var(--s2);border-radius:14px;padding:10px 4px;text-align:center}
+.strip b{display:block;font-size:1rem;font-weight:800}
 .strip span{font-size:.7rem;color:var(--muted)}
-#cmpwrap{position:relative;margin-top:14px;border-radius:18px;overflow:hidden;background:#000;aspect-ratio:9/12;--p:50%}
+#cmpwrap{position:relative;margin-top:12px;border-radius:16px;overflow:hidden;background:#000;aspect-ratio:9/12;--p:50%}
 #cmp video{position:absolute;inset:0;width:100%;height:100%;max-height:none;object-fit:cover;border-radius:0}
 #cmp video:first-child{clip-path:inset(0 calc(100% - var(--p)) 0 0)}
 #cmpwrap .ln{position:absolute;top:0;bottom:0;left:var(--p);width:3px;margin-left:-1.5px;background:var(--accent);pointer-events:none}
-#cmpwrap .lb{position:absolute;top:10px;padding:3px 10px;border-radius:99px;background:rgba(20,22,26,.8);font-size:.75rem;font-weight:700;pointer-events:none}
+#cmpwrap .lb{position:absolute;top:10px;padding:3px 10px;border-radius:99px;background:rgba(20,22,26,.85);font-size:.75rem;font-weight:700;pointer-events:none}
 #cmpwrap input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:ew-resize}
-#dock{position:fixed;left:0;right:0;bottom:0;padding:24px 16px calc(14px + env(safe-area-inset-bottom));background:linear-gradient(transparent,var(--bg) 28%)}
-#dock>div{max-width:460px;margin:0 auto}
-#dock button{margin-top:8px;min-height:58px;font-size:1.05rem}
-#dockrow{display:flex;align-items:center;gap:12px;min-height:40px}
-#ring{width:44px;height:44px;flex:none}
-#ring circle{fill:none;stroke-width:5}
-#ring .bg{stroke:var(--panel2)}
-#rp{stroke:var(--accent);stroke-linecap:round;transform:rotate(-90deg);transform-origin:center;stroke-dasharray:163.4;stroke-dashoffset:163.4}
-#ring path{fill:none;stroke:var(--accent);stroke-width:5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:40;stroke-dashoffset:40;opacity:0}
-#ring.done #rp{stroke-dashoffset:0}
-#ring.done path{opacity:1;animation:tick .45s .1s ease-out forwards}
-@keyframes tick{to{stroke-dashoffset:0}}
-
-/* Glass lite: frosted panels only where it counts (cards, dock, chips), soft glow behind them */
-body::before{content:"";position:fixed;inset:0;z-index:-1;background:radial-gradient(420px 320px at 88% -4%,rgba(46,230,166,.24),transparent 70%),radial-gradient(360px 300px at -12% 38%,rgba(255,107,94,.13),transparent 70%),radial-gradient(400px 300px at 70% 105%,rgba(46,230,166,.12),transparent 70%)}
-.card,.badge,.chip,.strip div,#dock>div,.livetile{border:1px solid rgba(255,255,255,.09);box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 10px 30px rgba(0,0,0,.22)}
-.card{background:linear-gradient(150deg,rgba(255,255,255,.085),rgba(255,255,255,.03));-webkit-backdrop-filter:blur(12px) saturate(1.3);backdrop-filter:blur(12px) saturate(1.3)}
-.part{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07)}
-.strip div,.livetile{background:rgba(255,255,255,.06)}
-input,select,button.sec,.chip{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.09)}
-button.sec{box-shadow:none}
-button:not(.sec):not(.chip),.go{background:linear-gradient(180deg,#63F2C3,#2EE6A6 55%,#22D197);box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 6px 18px rgba(46,230,166,.28)}
-.chip.on{background:linear-gradient(180deg,#63F2C3,#2EE6A6);border-color:transparent}
-.chip.on[data-p=tiktok]{background:linear-gradient(180deg,#FF8B80,#FF6B5E)}
-.badge{background:rgba(46,230,166,.12);border-color:rgba(46,230,166,.3)}
-.brand svg{filter:drop-shadow(0 6px 14px rgba(46,230,166,.35))}
-input[type=file]{padding:34px 16px;text-align:center;border:1.5px dashed rgba(46,230,166,.55);background:rgba(46,230,166,.05);color:var(--text);font-weight:700}
-input[type=file]::file-selector-button{display:block;margin:0 auto 10px;padding:10px 22px;background:linear-gradient(180deg,#63F2C3,#2EE6A6);box-shadow:inset 0 1px 0 rgba(255,255,255,.55)}
-#dock>div{max-width:460px;padding:12px 14px calc(12px + env(safe-area-inset-bottom));border-radius:26px 26px 0 0;border-bottom:0;background:rgba(29,32,38,.72);-webkit-backdrop-filter:blur(16px) saturate(1.4);backdrop-filter:blur(16px) saturate(1.4)}
-#dock{padding:24px 0 0;background:linear-gradient(transparent,rgba(20,22,26,.9) 60%)}
 #cmpwrap.solo .ln,#cmpwrap.solo input,#cmpwrap.solo .lb+.lb{display:none}
 #cmpwrap.solo #cmp video:first-child{clip-path:none}
-#cmpwrap .lb{-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
-@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.card{background:var(--panel)}#dock>div{background:var(--panel)}}
-@media (prefers-reduced-transparency:reduce){.card,#dock>div,#cmpwrap .lb{-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--panel)}}
+#dock{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid var(--line);padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
+#dock>div{max-width:460px;margin:0 auto}
+#msg{font-weight:600;font-size:.92rem;min-height:1.3em;max-height:3.9em;overflow:hidden;white-space:pre-line}
+#prow{display:flex;align-items:center;gap:12px;margin-top:8px}
+#ringbox{position:relative;width:48px;height:48px;flex:none}
+#ringbox svg{width:48px;height:48px}
+#ringbox circle{fill:none;stroke-width:5}
+#ringbox .bg{stroke:var(--s2)}
+#rp{stroke:var(--accent);stroke-linecap:round;transform:rotate(-90deg);transform-origin:center;stroke-dasharray:125.7;stroke-dashoffset:125.7}
+#ringbox path{fill:none;stroke:var(--accent);stroke-width:5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:40;stroke-dashoffset:40;opacity:0}
+#pct{position:absolute;inset:0;display:grid;place-items:center;font-size:.72rem;font-weight:800}
+#ringbox.done #rp{stroke-dashoffset:0}
+#ringbox.done path{opacity:1;animation:tick .45s .1s ease-out forwards}
+#ringbox.done #pct{display:none}
+@keyframes tick{to{stroke-dashoffset:0}}
+.pb{flex:1;display:flex;align-items:center;gap:10px}
+.track{flex:1;height:10px;border-radius:99px;background:var(--s2);overflow:hidden}
+#pfill{display:block;height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .15s linear}
+#ppct{font-weight:800;font-size:.9rem;min-width:3ch;text-align:right}
+#dock button{min-height:56px;font-size:1.02rem;margin-top:10px}
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-paste" viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5l11 7-11 7z"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></symbol>
+<symbol id="i-cut" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+</defs></svg>
 <main>
-  <div id="upd" class="upd" role="status" hidden><span id="upd-text"></span><button id="upd-btn">Update now</button></div>
-  <div class="brand">
-    <svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="gm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7FF6CF"/><stop offset="1" stop-color="#1FC98C"/></linearGradient><linearGradient id="gh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".6"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs><path d="M14 0H28L48 20V34Q48 48 34 48H14Q0 48 0 34V14Q0 0 14 0Z" fill="url(#gm)"/><path d="M14 0H28L48 20V26H0V14Q0 0 14 0Z" fill="url(#gh)"/><path d="M14 0H28L48 20V34Q48 48 34 48H14Q0 48 0 34V14Q0 0 14 0Z" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="1"/><path d="M32 0H34Q48 0 48 14V16Z" fill="#fff" fill-opacity=".4"/><path d="M19 15L35 24L19 33Z" fill="#0E2A22" fill-opacity=".85"/></svg>
-    <div><h1>Clean Cut <small id="ver"></small></h1><p class="tag">Drop a video. Get it lighter.</p></div>
+  <div class="top">
+    <svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><path d="M14 0H28L48 20V34Q48 48 34 48H14Q0 48 0 34V14Q0 0 14 0Z" fill="#2EE6A6"/><path d="M32 0H34Q48 0 48 14V16Z" fill="#2EE6A6" fill-opacity=".4"/><path d="M19 15L35 24L19 33Z" fill="#14161A"/></svg>
+    <div><h1>Clean Cut <small id="ver"></small></h1><p class="tagline">Drop a video. Get it lighter.</p></div>
   </div>
-  <span class="badge">Your files never leave your phone</span>
+  <div class="lock"><svg class="ic"><use href="#i-lock"/></svg>Your files never leave your phone</div>
+  <div id="upd" class="upd" role="status" hidden><span id="upd-text"></span><button id="upd-btn">Update now</button></div>
   <button id="install" class="sec" hidden>Install app (works offline)</button>
 
-  <div class="card" id="linkcard">
-    <div class="row">
+  <div class="tabs" role="tablist">
+    <button type="button" class="tab on" data-t="link"><svg class="ic"><use href="#i-paste"/></svg>Paste link</button>
+    <button type="button" class="tab" data-t="file"><svg class="ic"><use href="#i-upload"/></svg>Pick video</button>
+  </div>
+  <div class="chips" aria-label="Platform preset">
+    <button type="button" class="chip" data-p="tiktok">TikTok</button>
+    <button type="button" class="chip" data-p="instagram">Instagram</button>
+    <button type="button" class="chip" data-p="facebook">Facebook</button>
+    <button type="button" class="chip" data-p="youtube">YouTube</button>
+    <button type="button" class="chip" data-p="whatsapp">WhatsApp Status</button>
+  </div>
+
+  <section class="card" id="pl">
+    <div id="linkcard" class="row">
       <input id="tt" type="url" inputmode="url" placeholder="Paste a link" aria-label="Link to a video or photo post">
       <button id="paste" class="sec" type="button">Paste</button>
     </div>
-    <div class="chips" aria-label="Platform">
-      <button type="button" class="chip" data-p="tiktok">TikTok</button>
-      <button type="button" class="chip" data-p="instagram">Instagram</button>
-      <button type="button" class="chip" data-p="facebook">Facebook</button>
-      <button type="button" class="chip" data-p="youtube">YouTube</button>
-      <button type="button" class="chip" data-p="whatsapp">WhatsApp Status</button>
-    </div>
-    <button id="ttgo">Get it clean</button>
     <details id="srv">
       <summary>Download server (advanced)</summary>
       <p>TikTok works out of the box. Instagram, Facebook, YouTube and the rest go through a Cobalt server. Paste the address of one you can use. Add an API key only if that server asks for one.</p>
@@ -151,19 +163,23 @@ input[type=file]::file-selector-button{display:block;margin:0 auto 10px;padding:
     <div id="ttmsg" role="status"></div>
     <progress id="dlbar" max="1" value="0" hidden></progress>
     <div id="ready" hidden>
-      <div id="tools"></div>
       <div id="items"></div>
+      <div id="tools"></div>
       <details id="dbg" hidden>
         <summary>Technical details (for troubleshooting)</summary>
         <pre id="dbgtxt" style="white-space:pre-wrap;word-break:break-all;font-size:.7rem;max-height:200px;overflow:auto"></pre>
         <button id="dbgcopy" class="sec" type="button">Copy details</button>
       </details>
     </div>
-    <p class="or">Or pick a video from your phone</p>
-    <input id="file" type="file" accept="video/*" aria-label="Video">
-  </div>
+  </section>
 
-  <div class="card">
+  <section class="card" id="pf" hidden>
+    <label class="drop" for="file"><svg class="ic"><use href="#i-upload"/></svg><b id="dropname">Drop a video</b><small>or tap to choose one from your phone</small></label>
+    <input id="file" class="vh" type="file" accept="video/*" aria-label="Video">
+  </section>
+
+  <details class="card" id="settings">
+    <summary>Quality and options</summary>
     <select id="q" aria-label="Quality">
       <option value="1280:23:2500">Balanced (recommended)</option>
       <option value="1920:20:5000">Sharper, bigger file</option>
@@ -195,9 +211,9 @@ input[type=file]::file-selector-button{display:block;margin:0 auto 10px;padding:
       <p id="enhnote">Enhance runs in standard mode, so it is slower than Fast mode and limited to files under about 300 MB. It cannot add real detail, it only makes what is there look a little crisper and cleaner. Keep it Light unless you have tested it on your own status.</p>
     </div>
     <div id="note" role="status"></div>
-  </div>
+  </details>
 
-  <div class="card" id="stats" hidden>
+  <section class="card" id="stats" hidden>
     <p class="hero" id="hero"></p>
     <div class="strip">
       <div><b id="s-old"></b><span>Original</span></div>
@@ -211,17 +227,26 @@ input[type=file]::file-selector-button{display:block;margin:0 auto 10px;padding:
       <div class="ln"></div>
       <input id="sl" type="range" min="0" max="100" value="50" aria-label="Before and after slider">
     </div>
-  </div>
+  </section>
   <div id="out"></div>
   <p class="or">Use it on your own videos, or with the creator's OK.</p>
 </main>
+
+<div id="viewer" hidden>
+  <video id="vv" controls playsinline loop></video>
+  <a id="vdl" class="go"><svg class="ic"><use href="#i-download"/></svg>Download</a>
+  <button id="vclose" class="sec" type="button"><svg class="ic"><use href="#i-x"/></svg>Close</button>
+</div>
+
 <div id="dock"><div>
-  <div id="dockrow">
-    <svg id="ring" viewBox="0 0 64 64" hidden aria-hidden="true"><circle class="bg" cx="32" cy="32" r="26"/><circle id="rp" cx="32" cy="32" r="26"/><path d="M20 33L29 42L45 24"/></svg>
-    <div id="msg" role="status"></div>
+  <div id="msg" role="status"></div>
+  <div id="prow" hidden>
+    <div id="ringbox"><svg viewBox="0 0 48 48" aria-hidden="true"><circle class="bg" cx="24" cy="24" r="20"/><circle id="rp" cx="24" cy="24" r="20"/><path d="M14 25l7 7 13-14"/></svg><span id="pct">0%</span></div>
+    <div class="pb"><div class="track"><i id="pfill"></i></div><span id="ppct">0%</span></div>
   </div>
   <progress id="bar" max="1" value="0" hidden></progress>
-  <button id="go">Clean &amp; Compress</button>
+  <button id="ttgo"><svg class="ic"><use href="#i-cut"/></svg>Get it clean</button>
+  <button id="go" hidden><svg class="ic"><use href="#i-cut"/></svg>Clean &amp; Compress</button>
   <button id="cancel" class="sec" hidden>Cancel</button>
 </div></div>
 <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js" crossorigin="anonymous"></script>
@@ -233,7 +258,7 @@ const MEDIABUNNY = CDN + 'mediabunny@1.61.3/dist/bundles/mediabunny.min.mjs';
 const FAST_MAX_MB = 2048;   // fast mode reads the file in slices, so big files are fine
 const SLOW_MAX_MB = 300;    // the standard converter holds the whole file in memory
 const STALL_MS = 60000;     // fast mode gives up if the encoder shows no progress for this long
-const APP_VERSION = 10;
+const APP_VERSION = 11;
 $('ver').textContent = 'V' + APP_VERSION;
 
 // ---------- Offline install (service worker) and update check ----------
@@ -537,7 +562,6 @@ async function compress(file) {
   cancelled = false;
   setBusy(true); clearParts(); previewFile(file);
   $('note').textContent = '';
-  $('bar').scrollIntoView?.({ behavior: 'smooth', block: 'center' });
   let lock, ok = false;
   try { lock = await navigator.wakeLock?.request('screen'); } catch {}
   try {
@@ -591,7 +615,7 @@ const COBALT_DEFAULTS = ['https://api.cobalt.tools/']; // tried after the server
 const DL_MAX_MB = 400;      // bigger downloads are not held in memory: the app offers an Open link instead
 const DL_PARALLEL = 3;
 let resultURLs = [];
-const ttSay = (t, err) => { $('ttmsg').textContent = t; $('ttmsg').className = err ? 'err' : ''; };
+const ttSay = (t, err) => { $('ttmsg').textContent = t; $('ttmsg').className = err ? 'err' : ''; say(String(t).split('\n')[0], err); };
 
 // Remembered download server
 const loadSrv = () => { try { return JSON.parse(localStorage.getItem('sc_srv')) || {}; } catch { return {}; } };
@@ -1112,7 +1136,7 @@ function slideshowBar(photoFiles, musicUrl) {
 $('ttgo').onclick = async () => {
   const link = $('tt').value.match(/https?:\/\/\S+/)?.[0];
   if (!link) return ttSay('Drop a link first. TikTok, Instagram, Facebook or YouTube.', true);
-  $('ttgo').disabled = true; clearResults();
+  $('ttgo').disabled = true; clearResults(); dling = true; ring('run');
   let items;
   try {
     const pl = detect(link);
@@ -1121,10 +1145,14 @@ $('ttgo').onclick = async () => {
     items = await resolveLink(link);
   } catch (e) {
     ttSay("That link didn't load. Try pasting it again.\n" + e.message, true);
-    $('ttgo').disabled = false;
+    $('ttgo').disabled = false; dling = false; ring('off');
     return;
   }
   $('ready').hidden = false;
+  if (items.live?.length && await showLive(items)) {
+    $('ttgo').disabled = false; dling = false; ring('done');
+    return;
+  }
   const cards = items.map(makeCard);
   const files = new Array(items.length).fill(null);
   let next = 0, done = 0, failed = 0;
@@ -1162,43 +1190,7 @@ $('ttgo').onclick = async () => {
       official = true;
     } catch {}
   }
-  // Live Photo clips (the moving version of each slide), when the service provides them.
   let liveCount = 0;
-  if (items.live?.length) {
-    const box = document.createElement('div');
-    box.className = 'part';
-    const head = document.createElement('p');
-    head.textContent = 'Live Photos';
-    const list = document.createElement('div');
-    box.append(head, list);
-    const made = [];
-    for (let i = 0; i < items.live.length; i++) {
-      ttSay(`Checking for Live Photo clips (${i + 1} of ${items.live.length})...`);
-      try {
-        const f = await downloadItem({ type: 'video', url: items.live[i], name: `live-photo-${made.length + 1}.mp4` }, () => {}, true);
-        const card = makeCard({ type: 'video' });
-        list.append(card.d);
-        fillCard(card, { type: 'video', name: f.name, live: true }, f, 1);
-        made.push(f);
-      } catch {}
-    }
-    if (made.length) {
-      const bar = document.createElement('div');
-      if (made.length > 1) {
-        const cb = document.createElement('button');
-        cb.textContent = `Combine ${made.length} Live Photos into one video`;
-        cb.onclick = () => combineLive(made);
-        bar.append(cb);
-      }
-      const sa = document.createElement('button');
-      sa.className = 'sec'; sa.textContent = `Download all ${made.length}`;
-      sa.onclick = async () => { for (const a of list.querySelectorAll('a[data-save]')) { a.click(); await new Promise(r => setTimeout(r, 500)); } };
-      bar.append(sa);
-      box.insertBefore(bar, list);
-      $('items').insertBefore(box, $('items').children[official ? 1 : 0] || null);
-      liveCount = made.length;
-    }
-  }
   if (lastRaw) { $('dbgtxt').textContent = lastRaw; $('dbg').hidden = false; }
   const got = files.filter(Boolean);
   if (got.length > 1) {
@@ -1224,8 +1216,7 @@ $('ttgo').onclick = async () => {
   else if (failed) ttSay(`${got.length} of ${total} ${kind} ready, no watermark. ${failed} could not be downloaded here, use the Open button${failed > 1 ? 's' : ''}.`);
   else if (photoFiles.length >= 2) ttSay(`${liveCount ? `${liveCount} Live Photo clips (moving slides) found, shown at the top. ` : ''}${official ? "TikTok's own animated version is the first video below. " : ''}${got.length} photos ready, no watermark.${failed ? ` ${failed} could not be downloaded here, use the Open button${failed > 1 ? 's' : ''}.` : ''} Tap Make one slideshow video, or Make each photo an animated clip, for the animated version.`);
   else ttSay(items.some(x => x.type === 'video') ? `Ready, no watermark. Want to use the HD feature to get a video ready for WhatsApp Status?` : `${total} ${kind} ready, no watermark.`);
-  $('ttgo').disabled = false;
-  navigator.vibrate?.(30);
+  $('ttgo').disabled = false; dling = false; ring('done');
 };
 
 // ---------- Clean Cut extras ----------
@@ -1241,16 +1232,25 @@ document.querySelectorAll('.chip').forEach(c => c.onclick = () => pickPlatform(c
 $('tt').addEventListener('input', () => { const p = detect($('tt').value); if (p) pickPlatform(p); });
 function wipe() { const c = $('linkcard'); c.classList.remove('wipe'); void c.offsetWidth; c.classList.add('wipe'); }
 
-// Progress ring that turns into a checkmark
-const RC = 163.4; let ringOn = false;
-function ringLoop() { if (!ringOn) return; $('rp').style.strokeDashoffset = RC * (1 - ($('bar').value || 0)); requestAnimationFrame(ringLoop); }
+// Progress ring + bar with a percentage, turning into a checkmark when done
+const RC = 125.7; let ringOn = false, dling = false;
+function ringLoop() {
+  if (!ringOn) return;
+  const v = Math.min(1, Math.max(0, Number(busy ? $('bar').value : $('dlbar').value) || 0)), pc = Math.round(v * 100);
+  $('rp').style.strokeDashoffset = RC * (1 - v); $('pfill').style.width = pc + '%';
+  $('ppct').textContent = pc + '%'; $('pct').textContent = pc + '%';
+  requestAnimationFrame(ringLoop);
+}
 function ring(state) {
-  const r = $('ring');
-  r.toggleAttribute('hidden', state === 'off');
-  r.classList.toggle('done', state === 'done');
+  $('prow').hidden = state === 'off';
+  $('ringbox').classList.toggle('done', state === 'done');
   ringOn = state === 'run';
   if (ringOn) ringLoop();
-  if (state === 'done') { $('rp').style.strokeDashoffset = 0; navigator.vibrate?.(30); setTimeout(() => { if (!busy) ring('off'); }, 2500); }
+  if (state === 'done') {
+    $('rp').style.strokeDashoffset = 0; $('pfill').style.width = '100%'; $('ppct').textContent = '100%';
+    navigator.vibrate?.(30);
+    setTimeout(() => { if (!busy && !dling) ring('off'); }, 2500);
+  }
 }
 
 let prevURL;
@@ -1265,7 +1265,7 @@ function previewFile(file) {
   $('cmp').replaceChildren(v);
   $('cmpwrap').classList.add('solo'); $('stats').hidden = false;
 }
-$('file').addEventListener('change', () => { const f = $('file').files[0]; if (f && !busy) previewFile(f); });
+$('file').addEventListener('change', () => { const f = $('file').files[0]; if (f && !busy) previewFile(f); $('dropname').textContent = f ? f.name : 'Drop a video'; });
 
 // Size strip, hero stat and the before/after slider
 function showStats(file, oldMB, newMB) {
@@ -1283,6 +1283,7 @@ function showStats(file, oldMB, newMB) {
   $('cmp').replaceChildren(mk(file), mk(partFiles[0]));
   $('cmpwrap').style.setProperty('--p', '50%'); $('sl').value = 50;
   $('stats').hidden = false;
+  $('stats').scrollIntoView?.({ behavior: 'smooth', block: 'start' });
 }
 $('sl').addEventListener('input', () => $('cmpwrap').style.setProperty('--p', $('sl').value + '%'));
 
@@ -1333,6 +1334,69 @@ async function combineLive(files) {
     killFF(); setBusy(false); if (ok) ring('done'); lock?.release?.();
   }
 }
+
+// ---------- Live Photo posts: check for them first, skip the still photos ----------
+function openViewer(url, name) {
+  $('vv').src = url; $('vdl').href = url; $('vdl').download = name;
+  $('viewer').hidden = false; $('vv').play().catch(() => {});
+}
+$('vclose').onclick = () => { $('vv').pause(); $('vv').removeAttribute('src'); $('vv').load(); $('viewer').hidden = true; };
+
+async function showLive(items) {
+  const urls = items.live, total = urls.length, got = new Array(total).fill(null);
+  ttSay(`Live Photo post found. Getting ${total} clip${total > 1 ? 's' : ''}…`);
+  $('dlbar').hidden = false; $('dlbar').value = 0;
+  let next = 0, done = 0;
+  const worker = async () => {
+    while (next < total) {
+      const i = next++;
+      try { got[i] = await downloadItem({ type: 'video', url: urls[i], name: `live-photo-${i + 1}.mp4` }, f => { $('dlbar').value = (done + f) / total; }, true); } catch {}
+      done++; $('dlbar').value = done / total;
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(DL_PARALLEL, total) }, worker));
+  $('dlbar').hidden = true;
+  const made = got.filter(Boolean).map((f, k) => new File([f], `live-photo-${k + 1}.mp4`, { type: f.type || 'video/mp4' }));
+  if (!made.length) return 0;           // nothing usable: fall back to the photos
+  const head = document.createElement('div'); head.className = 'lhead';
+  head.innerHTML = `<b>Live Photos</b><small>${made.length} clip${made.length > 1 ? 's' : ''}</small>`;
+  const list = document.createElement('div');
+  made.forEach((f, k) => {
+    const url = URL.createObjectURL(f); resultURLs.push(url);
+    const r = document.createElement('div'); r.className = 'lrow';
+    r.innerHTML = `<button class="thumb" type="button" aria-label="Preview Live Photo ${k + 1}"><video muted playsinline preload="metadata"></video><svg class="ic"><use href="#i-play"/></svg></button>` +
+      `<div class="meta"><b>Live Photo ${k + 1}</b><small>${(f.size / 1048576).toFixed(1)} MB · tap to preview</small></div>` +
+      `<a class="dlb" aria-label="Download Live Photo ${k + 1}"><svg class="ic"><use href="#i-download"/></svg></a>`;
+    const v = r.querySelector('video'); v.src = url; v.onloadedmetadata = () => { v.currentTime = 0.1; };
+    const a = r.querySelector('a'); a.href = url; a.download = f.name; a.dataset.save = '1';
+    r.querySelector('.thumb').onclick = () => openViewer(url, f.name);
+    list.append(r);
+  });
+  $('items').append(head, list);
+  if (made.length > 1) {
+    const bar = document.createElement('div'); bar.className = 'lbar';
+    const all = document.createElement('button');
+    all.innerHTML = '<svg class="ic"><use href="#i-download"/></svg>Download all';
+    all.onclick = async () => { for (const a of list.querySelectorAll('a[data-save]')) { a.click(); await new Promise(r => setTimeout(r, 500)); } };
+    const cb = document.createElement('button'); cb.className = 'sec';
+    cb.innerHTML = '<svg class="ic"><use href="#i-layers"/></svg>Combine into one video';
+    cb.onclick = () => combineLive(made);
+    bar.append(all, cb); $('tools').append(bar);
+  }
+  if (lastRaw) { $('dbgtxt').textContent = lastRaw; $('dbg').hidden = false; }
+  ttSay(`${made.length} Live Photo clip${made.length > 1 ? 's' : ''} ready${made.length < total ? ` (${total - made.length} could not be fetched)` : ''}. Tap one to preview.`);
+  navigator.vibrate?.(30);
+  return made.length;
+}
+
+// ---------- Tabs ----------
+function tab(t) {
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  $('pl').hidden = t !== 'link'; $('pf').hidden = t !== 'file';
+  $('ttgo').hidden = t !== 'link'; $('go').hidden = t !== 'file';
+}
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => tab(b.dataset.t));
+tab('link');
 </script>
 </body>
 </html>
