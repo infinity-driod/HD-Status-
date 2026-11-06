@@ -1,11 +1,11 @@
 <!doctype html>
-<!-- Clean Cut V16 -->
+<!-- Snipr V17 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#14161A">
-<title>Clean Cut</title>
+<title>Snipr</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -119,6 +119,25 @@ details p{font-size:.85rem;margin:8px 0 0}
 #pfill{display:block;height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .15s linear}
 #ppct{font-weight:800;font-size:.9rem;min-width:3ch;text-align:right}
 #dock button{min-height:56px;font-size:1.02rem;margin-top:10px}
+.tab{font-size:.8rem;padding:10px 6px;gap:5px;line-height:1.15}
+.tab .ic{width:17px;height:17px}
+.songcard{margin-top:12px}
+.sc-top{display:flex;gap:12px;align-items:center}
+.cover{flex:none;width:64px;height:64px;border-radius:12px;background:var(--s1) center/cover;display:grid;place-items:center;color:var(--accent)}
+.cover .ic{width:28px;height:28px}
+.sc-meta{flex:1;min-width:0}.sc-meta b{display:block;font-size:1.02rem;word-break:break-word}
+.sc-how{font-size:.78rem;color:var(--accent);margin-top:2px}
+.sc-note{font-size:.85rem;margin:10px 0 0}
+.sc-act{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.sc-act>*{margin-top:0}
+.sc-act.one{grid-template-columns:1fr}
+.go.alt{background:var(--s2);color:var(--text);border:1px solid var(--line)}
+.sc-links{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.sc-links a{flex:1;min-width:110px;min-height:42px;margin:0;font-size:.82rem;padding:8px 10px}
+.songcard audio{width:100%;margin-top:10px}
+.drop.sm{padding:16px 14px;margin-top:10px}
+#smsg{margin-top:10px;font-size:.9rem;white-space:pre-line}
+.autorow{margin-top:10px}
 </style>
 </head>
 <body>
@@ -130,12 +149,13 @@ details p{font-size:.85rem;margin:8px 0 0}
 <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
 <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3l9 5-9 5-9-5zM3 13l9 5 9-5"/></symbol>
 <symbol id="i-cut" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12"/></symbol>
+<symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></symbol>
 <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
 </defs></svg>
 <main>
   <div class="top">
     <svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><path d="M14 0H28L48 20V34Q48 48 34 48H14Q0 48 0 34V14Q0 0 14 0Z" fill="#2EE6A6"/><path d="M32 0H34Q48 0 48 14V16Z" fill="#2EE6A6" fill-opacity=".4"/><path d="M19 15L35 24L19 33Z" fill="#14161A"/></svg>
-    <div><h1>Clean Cut <small id="ver"></small></h1><p class="tagline" id="tagline">Paste a link. Get it clean.</p></div>
+    <div><h1>Snipr <small id="ver"></small></h1><p class="tagline" id="tagline">Paste a link. Get it clean. Find the song.</p></div>
   </div>
   <div class="lock"><svg class="ic"><use href="#i-lock"/></svg>Your files never leave your phone</div>
   <div id="upd" class="upd" role="status" hidden><span id="upd-text"></span><button id="upd-btn">Update now</button></div>
@@ -143,6 +163,7 @@ details p{font-size:.85rem;margin:8px 0 0}
 
   <div class="tabs" role="tablist">
     <button type="button" class="tab on" data-t="clean"><svg class="ic"><use href="#i-paste"/></svg>Clean a link</button>
+    <button type="button" class="tab" data-t="song"><svg class="ic"><use href="#i-music"/></svg>Find song</button>
     <button type="button" class="tab" data-t="compress"><svg class="ic"><use href="#i-upload"/></svg>Status compressor</button>
   </div>
   <div class="chips" id="chips" aria-label="Platform detected">
@@ -159,6 +180,7 @@ details p{font-size:.85rem;margin:8px 0 0}
       <input id="tt" type="url" inputmode="url" placeholder="Paste a link" aria-label="Link to a video or photo post">
       <button id="paste" class="sec" type="button">Paste</button>
     </div>
+    <label class="check autorow"><input id="autosong" type="checkbox" checked> Also find the song</label>
     <details id="srv">
       <summary>Download server (advanced)</summary>
       <p>TikTok works out of the box. Instagram, Facebook, YouTube and the rest go through a Cobalt server. Paste the address of one you can use. Add an API key only if that server asks for one.</p>
@@ -170,6 +192,7 @@ details p{font-size:.85rem;margin:8px 0 0}
     <div id="ready" hidden>
       <div id="items"></div>
       <div id="tools"></div>
+      <div id="songbox"></div>
       <details id="dbg" hidden>
         <summary>Technical details (for troubleshooting)</summary>
         <pre id="dbgtxt" style="white-space:pre-wrap;word-break:break-all;font-size:.7rem;max-height:200px;overflow:auto"></pre>
@@ -180,9 +203,29 @@ details p{font-size:.85rem;margin:8px 0 0}
 
   </div>
 
+  <div id="mSong" hidden>
+  <section class="card" id="ps">
+    <p class="cap">Paste a link, or pick a video or audio file. Snipr finds the song name, and gives you the sound as an MP3 and the video as an MP4 when it can.</p>
+    <div class="row">
+      <input id="st" type="url" inputmode="url" placeholder="Paste a link" aria-label="Link to a video or song" autocomplete="off">
+      <button id="spaste" class="sec" type="button">Paste</button>
+    </div>
+    <label class="drop sm" for="sfile"><svg class="ic"><use href="#i-music"/></svg><b id="sname">Or pick a video or audio file</b><small>from your phone</small></label>
+    <input id="sfile" class="vh" type="file" accept="video/*,audio/*" aria-label="Video or audio file">
+    <div id="smsg" role="status"></div>
+    <div id="sOut"></div>
+  </section>
+  </div>
+
+  <details class="card" id="sset">
+    <summary>Song recognition (advanced)</summary>
+    <p>A song's name is read from the post's own sound label when there is one (TikTok). To recognise a song by listening to it, paste a token from audd.io. A short audio sample of about 20 seconds is then sent to AudD. Without a token you still get the audio as MP3 and the video as MP4.</p>
+    <input id="audd" type="password" placeholder="AudD API token (optional)" aria-label="AudD API token" autocomplete="off">
+  </details>
+
   <div id="mCompress" hidden>
   <section class="card" id="pf">
-    <p class="cap">Pick a video. Clean Cut looks at it and picks the best settings by itself. Long videos are cut into 30-second parts.</p>
+    <p class="cap">Pick a video. Snipr looks at it and picks the best settings by itself. Long videos are cut into 30-second parts.</p>
     <label class="drop" for="file"><svg class="ic"><use href="#i-upload"/></svg><b id="dropname">Drop a video</b><small>or tap to choose one from your phone</small></label>
     <input id="file" class="vh" type="file" accept="video/*" aria-label="Video">
   </section>
@@ -257,6 +300,7 @@ details p{font-size:.85rem;margin:8px 0 0}
   </div>
   <progress id="bar" max="1" value="0" hidden></progress>
   <button id="ttgo"><svg class="ic"><use href="#i-cut"/></svg>Get it clean</button>
+  <button id="sgo" hidden><svg class="ic"><use href="#i-music"/></svg>Find the song</button>
   <button id="go" hidden><svg class="ic"><use href="#i-cut"/></svg>Clean &amp; Compress</button>
   <button id="cancel" class="sec" hidden>Cancel</button>
 </div></div>
@@ -269,7 +313,7 @@ const MEDIABUNNY = CDN + 'mediabunny@1.61.3/dist/bundles/mediabunny.min.mjs';
 const FAST_MAX_MB = 2048;   // fast mode reads the file in slices, so big files are fine
 const SLOW_MAX_MB = 300;    // the standard converter holds the whole file in memory
 const STALL_MS = 60000;     // fast mode gives up if the encoder shows no progress for this long
-const APP_VERSION = 16;
+const APP_VERSION = 17;
 $('ver').textContent = 'V' + APP_VERSION;
 { let taps = 0, t0 = 0; // tap the version label 5 times to show or hide the manual settings
   $('ver').onclick = () => { const n = Date.now(); taps = n - t0 < 1500 ? taps + 1 : 1; t0 = n; if (taps >= 5) { taps = 0; $('settings').hidden = !$('settings').hidden; } }; }
@@ -807,6 +851,8 @@ async function viaTikTok(link) {
   if (j.code !== 0 || !j.data) throw new LinkError(j.msg || 'No media found for that link.');
   const d = j.data;
   try { lastRaw = JSON.stringify(d, null, 1).slice(0, 8000); } catch { lastRaw = ''; }
+  const mi = d.music_info || {};
+  const song = { title: mi.title || '', author: mi.author || '', original: !!mi.original, cover: mi.cover ? absURL(mi.cover, TIKTOK_API) : '', url: (mi.play || (typeof d.music === 'string' ? d.music : '')) ? absURL(mi.play || d.music, TIKTOK_API) : '' };
   if (d.images?.length) {
     const list = d.images.map((u, i) => ({ type: 'photo', url: absURL(u, TIKTOK_API), name: `tiktok-photo-${i + 1}.jpg` }));
     const m = d.music || d.music_info?.play;
@@ -815,11 +861,14 @@ async function viaTikTok(link) {
     if (v && v !== m) list.official = absURL(v, TIKTOK_API);
     const live = findVideoURLs(d, [v, m, d.wmplay].filter(Boolean).map(u => absURL(u, TIKTOK_API)));
     if (live.length) list.live = live.slice(0, 30);
+    list.song = song;
     return list;
   }
   const u = d.hdplay || d.play;
   if (!u) throw new LinkError('No media found for that link.');
-  return [{ type: 'video', url: absURL(u, TIKTOK_API), name: 'tiktok.mp4' }];
+  const one = [{ type: 'video', url: absURL(u, TIKTOK_API), name: 'tiktok.mp4' }];
+  one.song = song;
+  return one;
 }
 
 async function viaCobalt(server, key, link) {
@@ -920,6 +969,7 @@ function clearResults() {
   $('tools').innerHTML = '';
   $('dbg').hidden = true; $('dbgtxt').textContent = ''; lastRaw = '';
   slideCard = null; clipBox = null; comboCard = null;
+  songRun++; currentSong = null; $('songbox').innerHTML = '';
   $('ready').hidden = true;
 }
 
@@ -954,7 +1004,7 @@ function fillCard(card, it, file, total) {
   p.textContent = `${file.name}, ${(file.size / 1048576).toFixed(1)} MB`;
   card.d.append(p);
   const save = document.createElement('a');
-  save.className = 'go'; save.href = url; save.download = file.name; save.textContent = 'Save to phone';
+  save.className = 'go'; save.href = url; save.download = file.name; save.textContent = it.type === 'video' ? 'Save video (MP4)' : 'Save to phone';
   card.d.append(save);
   if (navigator.canShare?.({ files: [file] })) {
     const b = document.createElement('button');
@@ -967,6 +1017,10 @@ function fillCard(card, it, file, total) {
     mb.className = 'sec'; mb.textContent = it.soundIsMusic ? 'Save without music' : 'Save without sound';
     mb.onclick = () => saveMuted(file, it.soundIsMusic, mb);
     card.d.append(mb);
+    const m3 = document.createElement('button');
+    m3.className = 'sec'; m3.textContent = 'Save as MP3';
+    m3.onclick = () => saveVideoAsMp3(file, m3);
+    card.d.append(m3);
     const h = document.createElement('button');
     h.className = 'hdbtn'; h.textContent = 'Prepare for Status (HD)';
     h.onclick = () => sendToCompressor(file);
@@ -1018,7 +1072,7 @@ async function muteVideo(file, isMusic) {
 
 let muting = false;
 async function saveMuted(file, isMusic, btn) {
-  if (busy || slideBusy || dling || muting) return ttSay('Wait for the current job to finish first.', true);
+  if (busy || slideBusy || dling || muting || mp3ing) return ttSay('Wait for the current job to finish first.', true);
   muting = true;
   const label = btn.textContent, noun = isMusic ? 'music' : 'sound';
   btn.disabled = true; btn.textContent = `Removing the ${noun}…`;
@@ -1324,6 +1378,7 @@ $('ttgo').onclick = async () => {
   $('ready').hidden = false;
   if (items.live?.length && await showLive(items)) {
     $('ttgo').disabled = false; dling = false; ring('done');
+    if ($('autosong').checked) autoSong(link, items);
     return;
   }
   const cards = items.map(makeCard);
@@ -1390,9 +1445,10 @@ $('ttgo').onclick = async () => {
   else if (photoFiles.length >= 2) ttSay(`${liveCount ? `${liveCount} Live Photo clips (moving slides) found, shown at the top. ` : ''}${official ? "TikTok's own animated version is the first video below. " : ''}${got.length} photos ready, no watermark.${failed ? ` ${failed} could not be downloaded here, use the Open button${failed > 1 ? 's' : ''}.` : ''} Tap Make one slideshow video, or Make each photo an animated clip, for the animated version.`);
   else ttSay(items.some(x => x.type === 'video') ? `Ready, no watermark. Want to use the HD feature to get a video ready for WhatsApp Status?` : `${total} ${kind} ready, no watermark.`);
   $('ttgo').disabled = false; dling = false; ring('done');
+  if ($('autosong').checked) autoSong(link, items);
 };
 
-// ---------- Clean Cut extras ----------
+// ---------- Snipr extras ----------
 const detect = l => /tiktok\.com/i.test(l) ? 'tiktok' : /instagram\.com/i.test(l) ? 'instagram' : /facebook\.com|fb\.watch/i.test(l) ? 'facebook' : /youtu\.?be/i.test(l) ? 'youtube' : null;
 // In Clean mode the chips only show which site the link is from. They no longer change the compressor settings.
 function pickPlatform(p) {
@@ -1677,19 +1733,20 @@ async function showLive(items) {
 let mode = 'clean';
 function setMode(m) {
   mode = m;
-  const clean = m === 'clean';
+  const clean = m === 'clean', song = m === 'song', link = clean || song;
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.t === m));
-  $('mClean').hidden = !clean; $('mCompress').hidden = clean;
-  $('ttgo').hidden = !clean; $('go').hidden = clean;
-  $('tagline').textContent = clean ? 'Paste a link. Get it clean.' : 'WhatsApp Status compressor.';
-  document.querySelectorAll('.chip').forEach(c => { c.hidden = (c.dataset.p === 'whatsapp') === clean; });
-  pickPlatform(clean ? detect($('tt').value) : 'whatsapp');
+  $('mClean').hidden = !clean; $('mSong').hidden = !song; $('mCompress').hidden = link;
+  $('sset').hidden = !link;
+  $('ttgo').hidden = !clean; $('sgo').hidden = !song; $('go').hidden = link;
+  $('tagline').textContent = clean ? 'Paste a link. Get it clean. Find the song.' : song ? 'Find the song. Save the MP3 or MP4.' : 'WhatsApp Status compressor.';
+  document.querySelectorAll('.chip').forEach(c => { c.hidden = (c.dataset.p === 'whatsapp') === link; });
+  pickPlatform(clean ? detect($('tt').value) : song ? detect($('st').value) : 'whatsapp');
   try { localStorage.setItem('sc_mode', m); } catch {}
   try { history.replaceState(null, '', location.pathname + '#' + m); } catch {}
 }
 document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
   if (b.dataset.t === mode) return;
-  if (busy || dling || slideBusy) return say('Wait for the current job to finish, or cancel it, then switch.', true);
+  if (busy || dling || slideBusy || songBusy || mp3ing) return say('Wait for the current job to finish, or cancel it, then switch.', true);
   setMode(b.dataset.t);
   say(''); ring('off');
 });
@@ -1703,14 +1760,337 @@ function sendToCompressor(file) {
   compress(file);
 }
 
+// ---------- Song finder ----------
+// Finds the name of the song behind a link, a video or an audio file, and gives you the sound as MP3.
+// 1) TikTok shows the sound's name on the post. It is used when it is a real song (not "original sound").
+// 2) Otherwise the sound is recognised by listening to it, through AudD (needs your own token, see Song recognition).
+// 3) Once the name is known, Apple's free iTunes search adds the cover and a 30-second official preview.
+const AUDD_API = 'https://api.audd.io/';
+const ITUNES_API = 'https://itunes.apple.com/search';
+const SAMPLE_MAX_MB = 8;
+let songRun = 0, currentSong = null, songBusy = false, mp3ing = false;
+
+const loadAudd = () => { try { return localStorage.getItem('sc_audd') || ''; } catch { return ''; } };
+$('audd').value = loadAudd();
+$('audd').addEventListener('change', () => { try { localStorage.setItem('sc_audd', $('audd').value.trim()); } catch {} });
+
+const safeName = x => String(x || '').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90);
+const songFileName = (info, fallback) => (info && info.title) ? safeName(info.artist ? `${info.artist} - ${info.title}` : info.title) : safeName(fallback) || 'audio';
+function saveBlobAs(blob, name) {
+  const u = URL.createObjectURL(blob);
+  setTimeout(() => URL.revokeObjectURL(u), 180000);
+  const a = document.createElement('a'); a.href = u; a.download = name;
+  document.body.append(a); a.click(); a.remove();
+}
+const audioExt = b => /mp4|m4a|aac/i.test(b.type || '') ? 'm4a' : /ogg|opus/i.test(b.type || '') ? 'ogg' : /wav/i.test(b.type || '') ? 'wav' : 'mp3';
+
+async function fetchAudioBlob(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('the sound could not be downloaded');
+  const len = Number(res.headers.get('content-length')) || 0;
+  if (len > 120 * 1048576) throw new Error('the sound file is too big');
+  const b = await res.blob();
+  let type = (res.headers.get('content-type') || b.type || '').split(';')[0].trim().toLowerCase();
+  if (!type.startsWith('audio/')) type = /\.m4a(\?|$)/i.test(url) ? 'audio/mp4' : 'audio/mpeg';
+  return new Blob([b], { type });
+}
+
+// Audio-only copy of a link through a Cobalt server (MP3).
+async function cobaltAudio(server, key, link) {
+  const headers = { Accept: 'application/json', 'Content-Type': 'application/json' };
+  if (key) headers.Authorization = 'Api-Key ' + key;
+  const r = await fetch(server, { method: 'POST', headers, body: JSON.stringify({ url: link, downloadMode: 'audio', audioFormat: 'mp3', audioBitrate: '128', filenameStyle: 'basic' }) });
+  let j;
+  try { j = await r.json(); } catch { throw new Error('the server gave an unreadable reply'); }
+  if (j.status === 'error') {
+    const code = String(j.error?.code || j.error || '');
+    const hit = COBALT_ERRORS.find(([k]) => code.endsWith(k));
+    if (hit) throw new LinkError(hit[1]);
+    if (/auth|jwt|api[_.]?key/i.test(code)) throw new Error('the server needs an API key');
+    throw new Error(code.replace(/^error\.api\./, '') || 'the server could not fetch it');
+  }
+  if (j.status === 'tunnel' || j.status === 'redirect') return absURL(j.url, server);
+  if (j.status === 'picker' && j.audio) return absURL(j.audio, server);
+  throw new Error('the server gave a reply this app cannot use');
+}
+async function resolveAudio(link) {
+  const s = loadSrv();
+  const mine = (s.url || '').replace(/\/?$/, '/');
+  const servers = [...new Set([s.url, ...COBALT_DEFAULTS].filter(Boolean).map(u => u.replace(/\/?$/, '/')))];
+  let lastErr = null;
+  for (const srv of servers) {
+    try { return await cobaltAudio(srv, srv === mine ? s.key : '', link); }
+    catch (e) { if (e instanceof LinkError) throw e; if (!lastErr || lastErr instanceof TypeError) lastErr = e; }
+  }
+  if (lastErr instanceof TypeError || !lastErr) throw new Error('Could not reach a download server for the audio. Add one under Download server (advanced).');
+  throw new Error(`The download server said: ${lastErr.message}.`);
+}
+
+// Audio from a video or audio file as MP3 (standard converter). Optional start and length make a short sample.
+async function ffmpegMp3(file, o = {}) {
+  if (busy || slideBusy || muting || mp3ing) throw new Error('Wait for the current job to finish first.');
+  mp3ing = true; cancelled = false;
+  try {
+    const f = await load();
+    await f.writeFile('in', new Uint8Array(await file.arrayBuffer()));
+    const meta = [];
+    if (o.title) meta.push('-metadata', 'title=' + o.title);
+    if (o.artist) meta.push('-metadata', 'artist=' + o.artist);
+    const head = ['-y', ...(o.start ? ['-ss', String(o.start)] : []), '-i', 'in', ...(o.dur ? ['-t', String(o.dur)] : []), '-vn', '-map', '0:a:0'];
+    let code = await f.exec([...head, '-c:a', 'libmp3lame', ...(o.dur ? ['-b:a', '96k', '-ac', '1'] : ['-q:a', '2']), ...meta, 'out.mp3']);
+    if (code === 0) return new Blob([await f.readFile('out.mp3')], { type: 'audio/mpeg' });
+    // The converter may lack the MP3 encoder: copy the sound as it is instead (usually M4A).
+    code = await f.exec([...head, '-c:a', 'copy', 'out.m4a']);
+    if (code !== 0) throw new Error('this file has no sound track');
+    return new Blob([await f.readFile('out.m4a')], { type: 'audio/mp4' });
+  } finally { killFF(); mp3ing = false; }
+}
+
+// ---- recognition ----
+function makeSample(blob) {
+  if (blob.size <= 3 * 1048576) return blob;
+  if (/mpeg|mp3/i.test(blob.type)) { const a = Math.floor(blob.size * 0.1); return blob.slice(a, a + 800000, 'audio/mpeg'); }
+  if (blob.size <= SAMPLE_MAX_MB * 1048576) return blob;
+  throw new Error('the audio is too long to check');
+}
+async function auddLookup(blob, token) {
+  const fd = new FormData();
+  fd.append('api_token', token); fd.append('return', 'apple_music,spotify');
+  fd.append('file', blob, 'sample.' + audioExt(blob));
+  const r = await fetch(AUDD_API, { method: 'POST', body: fd });
+  const j = await r.json();
+  if (j.status === 'error') throw new Error(j.error?.error_message || 'AudD refused the request');
+  const x = j.result;
+  if (!x) return null;
+  const art = x.apple_music?.artwork?.url;
+  return {
+    title: x.title, artist: x.artist, album: x.album || '',
+    cover: art ? art.replace('{w}', '300').replace('{h}', '300') : (x.spotify?.album?.images?.[0]?.url || ''),
+    preview: x.apple_music?.previews?.[0]?.url || '', storeUrl: x.apple_music?.url || x.song_link || '',
+  };
+}
+async function itunesLookup(title, artist) {
+  const r = await fetch(`${ITUNES_API}?media=music&entity=song&limit=5&term=${encodeURIComponent(`${artist || ''} ${title}`.trim())}`);
+  const j = await r.json();
+  const norm = x => String(x || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const t = norm(title);
+  const hit = (j.results || []).find(x => { const n = norm(x.trackName); return n && (n === t || n.includes(t) || t.includes(n)); });
+  if (!hit) return null;
+  return { cover: (hit.artworkUrl100 || '').replace('100x100', '300x300'), preview: hit.previewUrl || '', storeUrl: hit.trackViewUrl || '', album: hit.collectionName || '', title: hit.trackName, artist: hit.artistName };
+}
+
+// Everything the song step knows about where the sound can come from.
+function makeCtx({ link, items, file, showVideo }) {
+  const ctx = { link, items, file, showVideo, label: items?.song || null, audio: null };
+  ctx.getAudio = async () => {
+    if (ctx.audio) return ctx.audio;
+    let b;
+    if (file) b = /^audio\//i.test(file.type) ? file : await ffmpegMp3(file, { title: ctx.title, artist: ctx.artist });
+    else if (items?.song?.url) b = await fetchAudioBlob(items.song.url);
+    else b = await fetchAudioBlob(await resolveAudio(link));
+    return ctx.audio = b;
+  };
+  ctx.getSample = async () => {
+    if (file) {
+      if (file.size <= SAMPLE_MAX_MB * 1048576 && /^audio\//i.test(file.type)) return file;
+      return ffmpegMp3(file, { dur: 20 });
+    }
+    return makeSample(await ctx.getAudio());
+  };
+  ctx.getVideo = async () => {
+    const list = items || await resolveLink(link);
+    const v = list.find(x => x.type === 'video');
+    if (!v) throw new Error('there is no video at that link');
+    return downloadItem(v, () => {});
+  };
+  return ctx;
+}
+
+async function findSong(ctx, status) {
+  const info = { how: '' };
+  const l = ctx.label;
+  if (l?.title && !l.original && !/^original (sound|audio)/i.test(l.title)) {
+    Object.assign(info, { title: l.title, artist: l.author, cover: l.cover, how: 'label' });
+  }
+  const token = loadAudd().trim();
+  if (!info.title) {
+    if (token) {
+      try {
+        status('Listening to the sound…');
+        const r = await auddLookup(await ctx.getSample(), token);
+        if (r) Object.assign(info, r, { how: 'sound' }); else info.noMatch = true;
+      } catch (e) { info.error = e?.message || 'the lookup failed'; }
+    } else info.needToken = true;
+  }
+  if (info.title) {
+    try {
+      status('Looking for the official track…');
+      const m = await itunesLookup(info.title, info.artist);
+      if (m) for (const k of ['cover', 'preview', 'storeUrl', 'album']) if (!info[k] && m[k]) info[k] = m[k];
+    } catch {}
+  }
+  ctx.title = info.title; ctx.artist = info.artist;
+  return info;
+}
+
+// ---- the song card ----
+const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+function songWorking(box, text) {
+  const d = mk('div', 'part songcard');
+  d.append(mk('p', '', text));
+  box.replaceChildren(d);
+}
+function renderSong(box, info, ctx) {
+  const d = mk('div', 'part songcard');
+  const top = mk('div', 'sc-top');
+  const cover = mk('div', 'cover');
+  if (info.cover) cover.style.backgroundImage = `url("${info.cover}")`;
+  else cover.innerHTML = '<svg class="ic"><use href="#i-music"/></svg>';
+  const meta = mk('div', 'sc-meta');
+  if (info.title) {
+    meta.append(mk('b', '', info.title), mk('small', '', [info.artist, info.album].filter(Boolean).join(' · ')));
+    meta.append(mk('div', 'sc-how', info.how === 'sound' ? 'Recognised by listening to the sound' : "From the sound label on the post"));
+  } else {
+    meta.append(mk('b', '', 'Song not found'));
+    const l = ctx.label;
+    if (l?.title) meta.append(mk('small', '', l.original ? `Sound: ${l.title}` : l.title));
+  }
+  top.append(cover, meta); d.append(top);
+
+  if (!info.title) {
+    let why = "No song name came with this one.";
+    if (info.error) why = `Could not check it: ${info.error}.`;
+    else if (info.noMatch) why = "AudD could not recognise a song in this sound. It may be speech, or a song it does not know.";
+    else if (info.needToken) why = "This sound has no song name on it. To recognise songs by listening, add a free AudD token under Song recognition (advanced) at the bottom of the page.";
+    d.append(mk('p', 'sc-note', why));
+  }
+
+  // Downloads: the sound as MP3, and (Song finder tab) the video as MP4.
+  const act = mk('div', 'sc-act' + (ctx.showVideo ? '' : ' one'));
+  const mp3 = mk('button', '', 'Save song (MP3)');
+  mp3.type = 'button';
+  let mp3File = null;
+  mp3.onclick = async () => {
+    if (mp3File) return saveBlobAs(mp3File, mp3File.fname);
+    const label = mp3.textContent; mp3.disabled = true; mp3.textContent = 'Getting the audio…';
+    try {
+      const b = await ctx.getAudio();
+      const ext = audioExt(b);
+      b.fname = `${songFileName(info, ctx.file?.name?.replace(/\.[^.]+$/, '') || 'audio')}.${ext}`;
+      mp3File = b; saveBlobAs(b, b.fname);
+      mp3.textContent = ext === 'mp3' ? 'Saved. Tap to save again' : `Saved as ${ext.toUpperCase()}. Tap to save again`;
+    } catch (e) { mp3.textContent = label; (ctx.showVideo ? $('smsg') : $('ttmsg')).textContent = `Could not get the audio: ${e.message}`; }
+    finally { mp3.disabled = false; }
+  };
+  act.append(mp3);
+  if (ctx.showVideo && ctx.link) {
+    const mp4 = mk('button', 'sec', 'Save video (MP4)');
+    mp4.type = 'button';
+    let vf = null;
+    mp4.onclick = async () => {
+      if (vf) return saveBlobAs(vf, vf.name);
+      const label = mp4.textContent; mp4.disabled = true; mp4.textContent = 'Getting the video…';
+      try { vf = await ctx.getVideo(); saveBlobAs(vf, vf.name); mp4.textContent = 'Saved. Tap to save again'; }
+      catch (e) { mp4.textContent = label; $('smsg').textContent = `Could not get the video: ${e.message === 'too big' ? 'it is too big to hold in the browser' : e.message}`; }
+      finally { mp4.disabled = false; }
+    };
+    act.append(mp4);
+  }
+  d.append(act);
+
+  if (info.title) {
+    if (info.preview) { const a = mk('audio'); a.controls = true; a.preload = 'none'; a.src = info.preview; d.append(a, mk('p', 'sc-note', '30-second official preview.')); }
+    const q = encodeURIComponent(`${info.artist || ''} ${info.title}`.trim());
+    const links = mk('div', 'sc-links');
+    const add = (t, h) => { const a = mk('a', 'go alt', t); a.href = h; a.target = '_blank'; a.rel = 'noopener'; links.append(a); };
+    if (info.storeUrl) add('Open the track', info.storeUrl);
+    add('Spotify', `https://open.spotify.com/search/${q}`);
+    add('YouTube Music', `https://music.youtube.com/search?q=${q}`);
+    d.append(links);
+  }
+  box.replaceChildren(d);
+}
+
+// Clean a link: after the media is ready, look for the song in the background.
+async function autoSong(link, items) {
+  const run = ++songRun, box = $('songbox');
+  songWorking(box, 'Looking for the song…');
+  try {
+    const ctx = makeCtx({ link, items });
+    const info = await findSong(ctx, t => { if (run === songRun) songWorking(box, t); });
+    if (run !== songRun) return;
+    currentSong = info.title ? info : null;
+    renderSong(box, info, ctx);
+  } catch (e) {
+    if (run === songRun) songWorking(box, 'Could not look for the song.');
+  }
+}
+
+// One video's sound as MP3 (the "Save as MP3" button on a video card).
+async function saveVideoAsMp3(file, btn) {
+  if (busy || slideBusy || dling || muting || mp3ing) return ttSay('Wait for the current job to finish first.', true);
+  const label = btn.textContent; btn.disabled = true; btn.textContent = 'Making the MP3…';
+  try {
+    const b = await ffmpegMp3(file, currentSong ? { title: currentSong.title, artist: currentSong.artist } : {});
+    const ext = audioExt(b);
+    const name = `${songFileName(currentSong, file.name.replace(/\.[^.]+$/, ''))}.${ext}`;
+    saveBlobAs(b, name);
+    btn.onclick = () => saveBlobAs(b, name);
+    btn.textContent = 'Saved. Tap to save again';
+    ttSay(`${name} saved (${(b.size / 1048576).toFixed(1)} MB). If nothing downloaded, tap the button again.`);
+  } catch (e) {
+    btn.textContent = label;
+    ttSay(`Could not make the MP3: ${e.message}`, true);
+  } finally { btn.disabled = false; }
+}
+
+// ---- the Find song tab ----
+const sSay = (t, err) => { $('smsg').textContent = t; $('smsg').className = err ? 'err' : ''; say(String(t).split('\n')[0], err); };
+if (!navigator.clipboard?.readText) $('spaste').hidden = true;
+$('spaste').onclick = async () => {
+  try {
+    const l = (await navigator.clipboard.readText()).match(/https?:\/\/\S+/)?.[0];
+    if (!l) return sSay('No link found on the clipboard.', true);
+    $('st').value = l; $('sfile').value = ''; $('sname').textContent = 'Or pick a video or audio file';
+    pickPlatform(detect(l)); sSay('Link pasted. Tap Find the song.');
+  } catch { sSay('Could not read the clipboard. Press and hold in the box and paste instead.', true); }
+};
+$('st').addEventListener('input', () => { pickPlatform(detect($('st').value)); if ($('st').value) { $('sfile').value = ''; $('sname').textContent = 'Or pick a video or audio file'; } });
+$('sfile').addEventListener('change', () => {
+  const f = $('sfile').files[0];
+  if (f) { $('sname').textContent = f.name; $('st').value = ''; sSay('File chosen. Tap Find the song.'); }
+});
+$('sgo').onclick = async () => {
+  if (busy || slideBusy || dling || songBusy || muting || mp3ing) return sSay('Wait for the current job to finish first.', true);
+  const link = $('st').value.match(/https?:\/\/\S+/)?.[0];
+  const file = !link ? $('sfile').files[0] : null;
+  if (!link && !file) return sSay('Paste a link, or pick a video or audio file first.', true);
+  songBusy = true; $('sgo').disabled = true; $('sOut').innerHTML = '';
+  const run = ++songRun;
+  try {
+    let items = null;
+    if (link && isTikTok(link)) {
+      sSay('Finding the post…');
+      try { items = await resolveLink(link); } catch (e) { /* the sound can still be fetched below */ }
+    }
+    const ctx = makeCtx({ link, items, file, showVideo: !!link });
+    const info = await findSong(ctx, t => sSay(t));
+    if (run !== songRun) return;
+    renderSong($('sOut'), info, ctx);
+    sSay(info.title ? `Found: ${info.title}${info.artist ? ' by ' + info.artist : ''}.` : 'No song name found. You can still save the audio.');
+  } catch (e) {
+    sSay(`That did not work. ${e.message}`, true);
+  } finally { songBusy = false; $('sgo').disabled = false; }
+};
+
 // Where to start: a shared link opens Clean, a #compress or #clean address opens that mode, otherwise the last one used.
 (() => {
   let m = 'clean';
   const h = (location.hash || '').replace('#', '');
   let saved; try { saved = localStorage.getItem('sc_mode'); } catch {}
   if ($('tt').value) m = 'clean';
-  else if (h === 'compress' || h === 'clean') m = h;
-  else if (saved === 'compress') m = 'compress';
+  else if (h === 'compress' || h === 'clean' || h === 'song') m = h;
+  else if (saved === 'compress' || saved === 'song') m = saved;
   setMode(m);
 })();
 </script>

@@ -1,7 +1,7 @@
 {
-  "name": "Clean Cut",
-  "short_name": "Clean Cut",
-  "description": "Drop a video. Get it lighter. Clean it, shrink it, save it.",
+  "name": "Snipr",
+  "short_name": "Snipr",
+  "description": "Paste a link. Get the video clean, find the song, save the MP3 or MP4.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -36,6 +36,19 @@
       "short_name": "Compressor",
       "description": "Compress a video for WhatsApp Status",
       "url": "./#compress",
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Find a song",
+      "short_name": "Song",
+      "description": "Find the song in a link or video",
+      "url": "./#song",
       "icons": [
         {
           "src": "icon-192.png",
