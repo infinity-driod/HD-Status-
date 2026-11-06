@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- Snipr V17 -->
+<!-- Snipr V19 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -138,6 +138,9 @@ details p{font-size:.85rem;margin:8px 0 0}
 .drop.sm{padding:16px 14px;margin-top:10px}
 #smsg{margin-top:10px;font-size:.9rem;white-space:pre-line}
 .autorow{margin-top:10px}
+body:not(.dev) #dbg,body:not(.dev) #sset{display:none!important}
+#toast{position:fixed;left:50%;top:calc(14px + env(safe-area-inset-top));transform:translate(-50%,-20px);z-index:90;background:var(--accent);color:#07231A;font-weight:800;padding:10px 18px;border-radius:99px;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+#toast.on{opacity:1;transform:translate(-50%,0)}
 </style>
 </head>
 <body>
@@ -152,6 +155,7 @@ details p{font-size:.85rem;margin:8px 0 0}
 <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></symbol>
 <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
 </defs></svg>
+<div id="toast" role="status"></div>
 <main>
   <div class="top">
     <svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><path d="M14 0H28L48 20V34Q48 48 34 48H14Q0 48 0 34V14Q0 0 14 0Z" fill="#2EE6A6"/><path d="M32 0H34Q48 0 48 14V16Z" fill="#2EE6A6" fill-opacity=".4"/><path d="M19 15L35 24L19 33Z" fill="#14161A"/></svg>
@@ -181,6 +185,7 @@ details p{font-size:.85rem;margin:8px 0 0}
       <button id="paste" class="sec" type="button">Paste</button>
     </div>
     <label class="check autorow"><input id="autosong" type="checkbox" checked> Also find the song</label>
+    <p class="cap" style="margin:6px 0 0"><small>Recognising a song sends a short sample (about 20 seconds) of its sound to a recognition service.</small></p>
     <details id="srv">
       <summary>Download server (advanced)</summary>
       <p>TikTok works out of the box. Instagram, Facebook, YouTube and the rest go through a Cobalt server. Paste the address of one you can use. Add an API key only if that server asks for one.</p>
@@ -205,7 +210,7 @@ details p{font-size:.85rem;margin:8px 0 0}
 
   <div id="mSong" hidden>
   <section class="card" id="ps">
-    <p class="cap">Paste a link, or pick a video or audio file. Snipr finds the song name, and gives you the sound as an MP3 and the video as an MP4 when it can.</p>
+    <p class="cap">Paste a link, or pick a video or audio file. Snipr finds the song name, and gives you the sound as an MP3 and the video as an MP4 when it can. Recognising a song sends a short sample (about 20 seconds) of its sound to a recognition service.</p>
     <div class="row">
       <input id="st" type="url" inputmode="url" placeholder="Paste a link" aria-label="Link to a video or song" autocomplete="off">
       <button id="spaste" class="sec" type="button">Paste</button>
@@ -219,8 +224,9 @@ details p{font-size:.85rem;margin:8px 0 0}
 
   <details class="card" id="sset">
     <summary>Song recognition (advanced)</summary>
-    <p>A song's name is read from the post's own sound label when there is one (TikTok). To recognise a song by listening to it, paste a token from audd.io. A short audio sample of about 20 seconds is then sent to AudD. Without a token you still get the audio as MP3 and the video as MP4.</p>
+    <p>A song's name is read from the post's own sound label when there is one (TikTok). To recognise a song by listening, the app uses the song relay set in config.json (for everyone). Here you can paste a relay address to test one, or an AudD token to use on this phone only when no relay is set.</p>
     <input id="audd" type="password" placeholder="AudD API token (optional)" aria-label="AudD API token" autocomplete="off">
+    <input id="relay" type="url" inputmode="url" placeholder="Song relay address (optional, overrides config.json)" aria-label="Song relay address" autocomplete="off">
   </details>
 
   <div id="mCompress" hidden>
@@ -313,10 +319,21 @@ const MEDIABUNNY = CDN + 'mediabunny@1.61.3/dist/bundles/mediabunny.min.mjs';
 const FAST_MAX_MB = 2048;   // fast mode reads the file in slices, so big files are fine
 const SLOW_MAX_MB = 300;    // the standard converter holds the whole file in memory
 const STALL_MS = 60000;     // fast mode gives up if the encoder shows no progress for this long
-const APP_VERSION = 17;
+const APP_VERSION = 19;
 $('ver').textContent = 'V' + APP_VERSION;
-{ let taps = 0, t0 = 0; // tap the version label 5 times to show or hide the manual settings
-  $('ver').onclick = () => { const n = Date.now(); taps = n - t0 < 1500 ? taps + 1 : 1; t0 = n; if (taps >= 5) { taps = 0; $('settings').hidden = !$('settings').hidden; } }; }
+// Developer mode: tap the version label 5 times. It shows the troubleshooting details, the song recognition token
+// and the manual compressor settings. Regular users never see them. Tap 5 times again to turn it off.
+const toast = t => { const e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 2200); };
+function setDev(on, announce) {
+  document.body.classList.toggle('dev', on);
+  $('settings').hidden = !on;
+  try { localStorage.setItem('sc_dev', on ? '1' : '0'); } catch {}
+  if (announce) toast(on ? 'Developer mode on' : 'Developer mode off');
+}
+{ let taps = 0, t0 = 0;
+  $('ver').onclick = () => { const n = Date.now(); taps = n - t0 < 1500 ? taps + 1 : 1; t0 = n; if (taps >= 5) { taps = 0; setDev(!document.body.classList.contains('dev'), true); } };
+  let on = false; try { on = localStorage.getItem('sc_dev') === '1'; } catch {}
+  setDev(on, false); }
 
 // ---------- Offline install (service worker) and update check ----------
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -1773,6 +1790,13 @@ let songRun = 0, currentSong = null, songBusy = false, mp3ing = false;
 const loadAudd = () => { try { return localStorage.getItem('sc_audd') || ''; } catch { return ''; } };
 $('audd').value = loadAudd();
 $('audd').addEventListener('change', () => { try { localStorage.setItem('sc_audd', $('audd').value.trim()); } catch {} });
+// The relay is a small private server that holds the token, so everyone gets recognition. Its address is not secret:
+// it comes from config.json, or from the developer-mode box on this phone.
+let cfgRelay = '';
+const cfgReady = fetch('config.json', { cache: 'no-store' }).then(r => r.json()).then(j => { cfgRelay = String(j.songRelay || '').trim(); }).catch(() => {});
+const getRelay = async () => { await cfgReady; let d = ''; try { d = localStorage.getItem('sc_relay') || ''; } catch {} return (d || cfgRelay).trim(); };
+try { $('relay').value = localStorage.getItem('sc_relay') || ''; } catch {}
+$('relay').addEventListener('change', () => { try { localStorage.setItem('sc_relay', $('relay').value.trim()); } catch {} });
 
 const safeName = x => String(x || '').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90);
 const songFileName = (info, fallback) => (info && info.title) ? safeName(info.artist ? `${info.artist} - ${info.title}` : info.title) : safeName(fallback) || 'audio';
@@ -1853,11 +1877,11 @@ function makeSample(blob) {
   if (blob.size <= SAMPLE_MAX_MB * 1048576) return blob;
   throw new Error('the audio is too long to check');
 }
-async function auddLookup(blob, token) {
+async function auddLookup(blob, token, relay) {
   const fd = new FormData();
-  fd.append('api_token', token); fd.append('return', 'apple_music,spotify');
+  if (!relay) { fd.append('api_token', token); fd.append('return', 'apple_music,spotify'); } // through the relay the token is added there
   fd.append('file', blob, 'sample.' + audioExt(blob));
-  const r = await fetch(AUDD_API, { method: 'POST', body: fd });
+  const r = await fetch(relay || AUDD_API, { method: 'POST', body: fd });
   const j = await r.json();
   if (j.status === 'error') throw new Error(j.error?.error_message || 'AudD refused the request');
   const x = j.result;
@@ -1912,12 +1936,12 @@ async function findSong(ctx, status) {
   if (l?.title && !l.original && !/^original (sound|audio)/i.test(l.title)) {
     Object.assign(info, { title: l.title, artist: l.author, cover: l.cover, how: 'label' });
   }
-  const token = loadAudd().trim();
+  const token = loadAudd().trim(), relay = await getRelay();
   if (!info.title) {
-    if (token) {
+    if (relay || token) {
       try {
         status('Listening to the sound…');
-        const r = await auddLookup(await ctx.getSample(), token);
+        const r = await auddLookup(await ctx.getSample(), token, relay);
         if (r) Object.assign(info, r, { how: 'sound' }); else info.noMatch = true;
       } catch (e) { info.error = e?.message || 'the lookup failed'; }
     } else info.needToken = true;
@@ -1961,7 +1985,7 @@ function renderSong(box, info, ctx) {
     let why = "No song name came with this one.";
     if (info.error) why = `Could not check it: ${info.error}.`;
     else if (info.noMatch) why = "AudD could not recognise a song in this sound. It may be speech, or a song it does not know.";
-    else if (info.needToken) why = "This sound has no song name on it. To recognise songs by listening, add a free AudD token under Song recognition (advanced) at the bottom of the page.";
+    else if (info.needToken) why = "No song name came with this one. You can still save the audio.";
     d.append(mk('p', 'sc-note', why));
   }
 
